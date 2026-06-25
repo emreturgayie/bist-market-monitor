@@ -10,6 +10,11 @@ from enum import StrEnum
 from tavan_takip.data_providers import DataProvider, DataProviderNoDataError
 from tavan_takip.domain import IPOTracker, IPOTrackingConfig, IPOTrackingResult, IPOTrackingState
 from tavan_takip.market import MarketSession, MarketSessionEngine
+from tavan_takip.notifications import (
+    NotificationMessage,
+    NotificationSeverity,
+    Notifier,
+)
 from tavan_takip.persistence import IPOTrackingStateRepository
 
 
@@ -35,6 +40,8 @@ class SymbolMonitoringResult:
     status: SymbolMonitoringStatus
     tracking_result: IPOTrackingResult | None = None
     error_message: str | None = None
+    notification_sent: bool = False
+    notification_error: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,11 +69,13 @@ class MonitoringOrchestrator:
         market_session_engine: MarketSessionEngine | None = None,
         tracker: IPOTracker | None = None,
         state_repository: IPOTrackingStateRepository | None = None,
+        notifier: Notifier | None = None,
     ) -> None:
         self._data_provider = data_provider
         self._market_session_engine = market_session_engine or MarketSessionEngine()
         self._tracker = tracker or IPOTracker()
         self._state_repository = state_repository
+        self._notifier = notifier
 
     def run(
         self,
@@ -125,10 +134,13 @@ class MonitoringOrchestrator:
             config=config,
             state=states.get(config.symbol),
         )
+        notification_sent, notification_error = self._send_notification_if_needed(tracking_result)
         return SymbolMonitoringResult(
             symbol=config.symbol,
             status=SymbolMonitoringStatus.PROCESSED,
             tracking_result=tracking_result,
+            notification_sent=notification_sent,
+            notification_error=notification_error,
         )
 
     def _resolve_states(
@@ -144,6 +156,20 @@ class MonitoringOrchestrator:
         return {
             config.symbol: self._state_repository.get_or_create(config.symbol) for config in configs
         }
+
+    def _send_notification_if_needed(
+        self,
+        tracking_result: IPOTrackingResult,
+    ) -> tuple[bool, str | None]:
+        if self._notifier is None or not tracking_result.ceiling_signal.should_alert:
+            return False, None
+
+        message = _build_break_notification_message(tracking_result)
+        try:
+            self._notifier.send(message)
+        except Exception as exc:
+            return False, str(exc)
+        return True, None
 
 
 def _validate_configs(configs: Sequence[IPOTrackingConfig]) -> tuple[IPOTrackingConfig, ...]:
@@ -171,3 +197,23 @@ def _normalize_states(
             raise ValueError("state mapping key must match IPO tracking state symbol")
         normalized_states[normalized_symbol] = state
     return normalized_states
+
+
+def _build_break_notification_message(
+    tracking_result: IPOTrackingResult,
+) -> NotificationMessage:
+    signal = tracking_result.ceiling_signal
+    body = (
+        f"Symbol: {tracking_result.symbol}\n"
+        f"Current price: {signal.current_price}\n"
+        f"Theoretical ceiling: {signal.theoretical_ceiling_price}\n"
+        f"Gap: {signal.ceiling_gap}\n"
+        f"Monitoring mode: {tracking_result.monitoring_mode.value}\n"
+        f"Consecutive ceiling days: {tracking_result.updated_state.consecutive_ceiling_days}\n"
+        f"Reason: {signal.reason.value}"
+    )
+    return NotificationMessage(
+        title=f"Ceiling break alert: {tracking_result.symbol}",
+        body=body,
+        severity=NotificationSeverity.CRITICAL,
+    )

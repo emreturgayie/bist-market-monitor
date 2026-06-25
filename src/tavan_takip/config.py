@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     yfinance_retry_attempts: int = Field(default=3, ge=1)
     yfinance_retry_wait_seconds: float = Field(default=1.0, ge=0)
     sqlite_database_path: Path = Path("tavan_takip.sqlite3")
+    telegram_bot_token: str | None = None
+    telegram_chat_id: str | None = None
+    telegram_retry_attempts: int = Field(default=3, ge=1)
+    telegram_retry_wait_seconds: float = Field(default=1.0, ge=0)
 
     @field_validator("tracked_symbols", mode="before")
     @classmethod

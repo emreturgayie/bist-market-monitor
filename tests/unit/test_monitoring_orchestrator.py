@@ -16,6 +16,7 @@ from tavan_takip.application import (
 from tavan_takip.data_providers import DataProvider, DataProviderNoDataError
 from tavan_takip.domain import IPOTrackingConfig, IPOTrackingState, MarketQuote, MonitoringMode
 from tavan_takip.market import DEFAULT_MARKET_TIMEZONE
+from tavan_takip.notifications import NotificationMessage
 from tavan_takip.persistence import SQLiteIPOTrackingStateRepository
 
 
@@ -32,6 +33,19 @@ class FakeDataProvider(DataProvider):
         if quote is None:
             raise DataProviderNoDataError(f"missing quote for {symbol}")
         return quote
+
+
+class FakeNotifier:
+    """Notifier fake used by orchestration tests."""
+
+    def __init__(self, error: Exception | None = None) -> None:
+        self._error = error
+        self.messages: list[NotificationMessage] = []
+
+    def send(self, message: NotificationMessage) -> None:
+        if self._error is not None:
+            raise self._error
+        self.messages.append(message)
 
 
 def make_quote(
@@ -229,3 +243,63 @@ def test_orchestrator_persists_updated_state_when_repository_is_injected(tmp_pat
     tracking_result = result.symbol_results[0].tracking_result
     assert tracking_result is not None
     assert repository.load("ORNEK.IS") == tracking_result.updated_state
+
+
+def test_orchestrator_sends_notification_on_break_signal() -> None:
+    notifier = FakeNotifier()
+    provider = FakeDataProvider(quotes={"ORNEK.IS": make_quote(symbol="ORNEK.IS", price="10.95")})
+    orchestrator = MonitoringOrchestrator(data_provider=provider, notifier=notifier)
+
+    result = orchestrator.run(
+        checked_at=datetime(2026, 1, 5, 10, 30, tzinfo=DEFAULT_MARKET_TIMEZONE),
+        configs=[IPOTrackingConfig(symbol="ORNEK.IS")],
+    )
+
+    assert len(notifier.messages) == 1
+    assert notifier.messages[0].title == "Ceiling break alert: ORNEK.IS"
+    assert "Current price: 10.95" in notifier.messages[0].body
+    assert result.symbol_results[0].notification_sent is True
+    assert result.symbol_results[0].notification_error is None
+
+
+def test_orchestrator_does_not_notify_when_no_alert() -> None:
+    notifier = FakeNotifier()
+    provider = FakeDataProvider(quotes={"ORNEK.IS": make_quote(symbol="ORNEK.IS")})
+    orchestrator = MonitoringOrchestrator(data_provider=provider, notifier=notifier)
+
+    result = orchestrator.run(
+        checked_at=datetime(2026, 1, 5, 10, 30, tzinfo=DEFAULT_MARKET_TIMEZONE),
+        configs=[IPOTrackingConfig(symbol="ORNEK.IS")],
+    )
+
+    assert notifier.messages == []
+    assert result.symbol_results[0].notification_sent is False
+    assert result.symbol_results[0].notification_error is None
+
+
+def test_orchestrator_does_not_notify_when_market_closed() -> None:
+    notifier = FakeNotifier()
+    provider = FakeDataProvider(quotes={"ORNEK.IS": make_quote(symbol="ORNEK.IS", price="10.95")})
+    orchestrator = MonitoringOrchestrator(data_provider=provider, notifier=notifier)
+
+    result = orchestrator.run(
+        checked_at=datetime(2026, 1, 5, 9, 0, tzinfo=DEFAULT_MARKET_TIMEZONE),
+        configs=[IPOTrackingConfig(symbol="ORNEK.IS")],
+    )
+
+    assert result.symbol_results == ()
+    assert notifier.messages == []
+
+
+def test_orchestrator_surfaces_notification_failure_without_crashing() -> None:
+    notifier = FakeNotifier(error=RuntimeError("telegram unavailable"))
+    provider = FakeDataProvider(quotes={"ORNEK.IS": make_quote(symbol="ORNEK.IS", price="10.95")})
+    orchestrator = MonitoringOrchestrator(data_provider=provider, notifier=notifier)
+
+    result = orchestrator.run(
+        checked_at=datetime(2026, 1, 5, 10, 30, tzinfo=DEFAULT_MARKET_TIMEZONE),
+        configs=[IPOTrackingConfig(symbol="ORNEK.IS")],
+    )
+
+    assert result.symbol_results[0].notification_sent is False
+    assert result.symbol_results[0].notification_error == "telegram unavailable"

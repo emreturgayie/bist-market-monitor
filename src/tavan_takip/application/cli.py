@@ -18,6 +18,7 @@ from tavan_takip.config import Settings
 from tavan_takip.data_providers import DataProvider
 from tavan_takip.domain import IPOTrackingConfig, IPOTrackingState
 from tavan_takip.market import DEFAULT_MARKET_TIMEZONE, MarketSessionEngine
+from tavan_takip.notifications import Notifier
 from tavan_takip.persistence import IPOTrackingStateRepository
 
 DISCLAIMER = "Not investment advice."
@@ -38,6 +39,7 @@ def run_monitoring_cycle(
     output: TextIO,
     market_session_engine: MarketSessionEngine | None = None,
     state_repository: IPOTrackingStateRepository | None = None,
+    notifier: Notifier | None = None,
     now_provider: Callable[[], datetime] | None = None,
 ) -> CliRunOutcome:
     """Run one local monitoring cycle and write readable CLI output."""
@@ -54,6 +56,7 @@ def run_monitoring_cycle(
         data_provider=data_provider,
         market_session_engine=market_session_engine or MarketSessionEngine(),
         state_repository=state_repository,
+        notifier=notifier,
     )
     result = orchestrator.run(
         checked_at=checked_at,
@@ -110,6 +113,10 @@ def _render_symbol_result(symbol_result: SymbolMonitoringResult) -> list[str]:
     ]
     if signal.should_alert:
         lines.append(f"  Break reason: {signal.reason.value}")
+    if symbol_result.notification_sent:
+        lines.append("  Notification: sent")
+    if symbol_result.notification_error is not None:
+        lines.append(f"  Notification error: {symbol_result.notification_error}")
     return lines
 
 
