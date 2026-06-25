@@ -44,7 +44,19 @@ This project provides a modular monitoring foundation that can:
 - GitHub Actions CI for tests, linting, formatting, and typing
 - 113 automated tests
 
-## Architecture Overview
+## Documentation
+
+- [Architecture](docs/architecture.md): system overview, Clean Architecture boundaries, layers,
+  dependency direction, and current limitations.
+- [Data Flow](docs/data-flow.md): end-to-end monitoring flow, quote processing, alert
+  deduplication, persistence, and notification behavior.
+- [Deployment](docs/deployment.md): local development, Docker Compose, environment variables,
+  SQLite volume, CI/CD overview, and security notes.
+- [Architecture Decisions](docs/decisions.md): lightweight ADRs for the major engineering choices.
+- [Roadmap](docs/roadmap.md): completed milestones, short-term work, long-term work, and explicit
+  future scope.
+
+## Architecture At A Glance
 
 ```mermaid
 flowchart TD
@@ -60,77 +72,8 @@ flowchart TD
     NotifyPort --> Telegram["Telegram Adapter"]
 ```
 
-## Components
-
-### Domain
-
-Pure business logic lives in `src/tavan_takip/domain/`.
-
-- `MarketQuote`: immutable quote model
-- `IPOTrackingConfig`: per-symbol monitoring configuration
-- `CeilingCalculator`: theoretical ceiling-price calculation
-- `CeilingBreakDetector`: break/no-break decision engine
-- `IPOTracker`: consecutive ceiling-day tracking and lifecycle state
-
-The domain layer does not depend on yfinance, SQLite, Telegram, Docker, or the CLI.
-
-### Application
-
-Application orchestration lives in `src/tavan_takip/application/`.
-
-- `MonitoringOrchestrator`: coordinates market status, quote retrieval, tracking, persistence, and notifications
-- CLI helper functions render readable local output
-- Provider and notification failures are reported per symbol when possible
-
-### Data Providers
-
-Data provider abstractions live in `src/tavan_takip/data_providers/`.
-
-- `DataProvider`: interface for retrieving quotes
-- `YFinanceProvider`: first adapter, intended for demo/delayed market data
-
-### Persistence
-
-Persistence adapters live in `src/tavan_takip/persistence/`.
-
-- SQLite-backed IPO tracking state repository
-- local schema version table
-- integrity constraints for tracking state
-- break-alert deduplication table
-
-### Notifications
-
-Notification ports and adapters live in `src/tavan_takip/notifications/`.
-
-- `Notifier`: delivery interface
-- `NotificationMessage`: provider-independent message model
-- `TelegramNotifier`: Telegram Bot API adapter
-
-Telegram is optional and only enabled when both token and chat ID are configured.
-
-### Scheduler
-
-Scheduling policy lives in `src/tavan_takip/scheduler/`.
-
-- early monitoring mode: 3-4 configured check windows per trading day
-- hourly monitoring mode: hourly checks during market hours
-- market-aware next-run decisions
-
-This layer is pure policy. It does not run an infinite loop and does not call external APIs.
-
-### Market Session
-
-Market calendar/session logic lives in `src/tavan_takip/market/`.
-
-- default timezone: `Europe/Istanbul`
-- configurable open and close times
-- weekend and configured holiday handling
-- timezone-aware datetime validation
-
-### CLI
-
-The CLI runs one monitoring cycle and prints structured output. It is intentionally simple and does
-not schedule recurring runs yet.
+The domain layer contains deterministic business rules and does not depend on yfinance, SQLite,
+Telegram, Docker, or the CLI. Infrastructure concerns are isolated behind ports and adapters.
 
 ## Folder Structure
 
@@ -147,13 +90,14 @@ not schedule recurring runs yet.
 │   ├── config.py         # pydantic-settings configuration
 │   └── main.py           # console entry point
 ├── tests/unit/           # unit tests
+├── docs/                 # architecture, flow, deployment, decisions, and roadmap
 ├── Dockerfile
 ├── docker-compose.yml
 ├── pyproject.toml
 └── README.md
 ```
 
-## How It Works End-to-End
+## Monitoring Flow
 
 ```mermaid
 sequenceDiagram
@@ -181,6 +125,9 @@ sequenceDiagram
         CLI-->>CLI: Print per-symbol results
     end
 ```
+
+See [Data Flow](docs/data-flow.md) for the detailed flow, including provider failures, alert
+deduplication, persistence, and Telegram notification handling.
 
 ## Installation
 
