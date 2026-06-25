@@ -1,0 +1,27 @@
+# Sanal ortam
+.venv/
+venv/
+
+# Python derleme/cache
+__pycache__/
+*.pyc
+*.pyo
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Gizli bilgiler — ASLA commit edilmeyecek
+.env
+
+# Yerel veritabanı
+*.db
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+
+# Dağıtım/derleme çıktıları
+dist/
+build/
+*.egg-info/
