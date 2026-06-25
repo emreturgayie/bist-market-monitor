@@ -1,0 +1,17 @@
+"""Persistence adapters and ports."""
+
+from tavan_takip.persistence.base import IPOTrackingStateRepository
+from tavan_takip.persistence.sqlite import (
+    SQLiteConnectionManager,
+    SQLiteIPOTrackingStateRepository,
+    deserialize_tracking_state,
+    serialize_tracking_state,
+)
+
+__all__ = [
+    "IPOTrackingStateRepository",
+    "SQLiteConnectionManager",
+    "SQLiteIPOTrackingStateRepository",
+    "deserialize_tracking_state",
+    "serialize_tracking_state",
+]

@@ -18,6 +18,7 @@ from tavan_takip.config import Settings
 from tavan_takip.data_providers import DataProvider
 from tavan_takip.domain import IPOTrackingConfig, IPOTrackingState
 from tavan_takip.market import DEFAULT_MARKET_TIMEZONE, MarketSessionEngine
+from tavan_takip.persistence import IPOTrackingStateRepository
 
 DISCLAIMER = "Not investment advice."
 
@@ -36,6 +37,7 @@ def run_monitoring_cycle(
     data_provider: DataProvider,
     output: TextIO,
     market_session_engine: MarketSessionEngine | None = None,
+    state_repository: IPOTrackingStateRepository | None = None,
     now_provider: Callable[[], datetime] | None = None,
 ) -> CliRunOutcome:
     """Run one local monitoring cycle and write readable CLI output."""
@@ -51,11 +53,12 @@ def run_monitoring_cycle(
     orchestrator = MonitoringOrchestrator(
         data_provider=data_provider,
         market_session_engine=market_session_engine or MarketSessionEngine(),
+        state_repository=state_repository,
     )
     result = orchestrator.run(
         checked_at=checked_at,
         configs=configs,
-        states=states,
+        states=None if state_repository is not None else states,
     )
 
     output.write(render_monitoring_result(result))

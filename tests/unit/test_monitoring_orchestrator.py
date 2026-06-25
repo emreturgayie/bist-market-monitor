@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
@@ -15,6 +16,7 @@ from tavan_takip.application import (
 from tavan_takip.data_providers import DataProvider, DataProviderNoDataError
 from tavan_takip.domain import IPOTrackingConfig, IPOTrackingState, MarketQuote, MonitoringMode
 from tavan_takip.market import DEFAULT_MARKET_TIMEZONE
+from tavan_takip.persistence import SQLiteIPOTrackingStateRepository
 
 
 class FakeDataProvider(DataProvider):
@@ -209,3 +211,21 @@ def test_invalid_state_mapping_is_rejected() -> None:
             configs=[IPOTrackingConfig(symbol="ORNEK.IS")],
             states={"ORNEK.IS": IPOTrackingState(symbol="BASKA.IS")},
         )
+
+
+def test_orchestrator_persists_updated_state_when_repository_is_injected(tmp_path: Path) -> None:
+    repository = SQLiteIPOTrackingStateRepository(tmp_path / "tracking.sqlite3")
+    provider = FakeDataProvider(quotes={"ORNEK.IS": make_quote(symbol="ORNEK.IS")})
+    orchestrator = MonitoringOrchestrator(
+        data_provider=provider,
+        state_repository=repository,
+    )
+
+    result = orchestrator.run(
+        checked_at=datetime(2026, 1, 5, 10, 30, tzinfo=DEFAULT_MARKET_TIMEZONE),
+        configs=[IPOTrackingConfig(symbol="ORNEK.IS")],
+    )
+
+    tracking_result = result.symbol_results[0].tracking_result
+    assert tracking_result is not None
+    assert repository.load("ORNEK.IS") == tracking_result.updated_state

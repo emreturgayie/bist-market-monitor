@@ -10,6 +10,7 @@ from enum import StrEnum
 from tavan_takip.data_providers import DataProvider, DataProviderNoDataError
 from tavan_takip.domain import IPOTracker, IPOTrackingConfig, IPOTrackingResult, IPOTrackingState
 from tavan_takip.market import MarketSession, MarketSessionEngine
+from tavan_takip.persistence import IPOTrackingStateRepository
 
 
 class MonitoringRunStatus(StrEnum):
@@ -60,10 +61,12 @@ class MonitoringOrchestrator:
         data_provider: DataProvider,
         market_session_engine: MarketSessionEngine | None = None,
         tracker: IPOTracker | None = None,
+        state_repository: IPOTrackingStateRepository | None = None,
     ) -> None:
         self._data_provider = data_provider
         self._market_session_engine = market_session_engine or MarketSessionEngine()
         self._tracker = tracker or IPOTracker()
+        self._state_repository = state_repository
 
     def run(
         self,
@@ -74,7 +77,6 @@ class MonitoringOrchestrator:
     ) -> MonitoringRunResult:
         """Execute one monitoring run for the configured IPO symbols."""
         normalized_configs = _validate_configs(configs)
-        normalized_states = _normalize_states(states or {})
         market_session = self._market_session_engine.evaluate(checked_at)
 
         if not market_session.is_open:
@@ -85,6 +87,7 @@ class MonitoringOrchestrator:
                 missing_symbols=(),
             )
 
+        normalized_states = self._resolve_states(configs=normalized_configs, states=states)
         symbol_results: list[SymbolMonitoringResult] = []
         missing_symbols: list[str] = []
         for config in normalized_configs:
@@ -92,6 +95,8 @@ class MonitoringOrchestrator:
             symbol_results.append(result)
             if result.status == SymbolMonitoringStatus.MISSING_QUOTE:
                 missing_symbols.append(result.symbol)
+            elif result.tracking_result is not None and self._state_repository is not None:
+                self._state_repository.save(result.tracking_result.updated_state)
 
         return MonitoringRunResult(
             status=MonitoringRunStatus.COMPLETED,
@@ -125,6 +130,20 @@ class MonitoringOrchestrator:
             status=SymbolMonitoringStatus.PROCESSED,
             tracking_result=tracking_result,
         )
+
+    def _resolve_states(
+        self,
+        *,
+        configs: tuple[IPOTrackingConfig, ...],
+        states: Mapping[str, IPOTrackingState] | None,
+    ) -> dict[str, IPOTrackingState]:
+        if states is not None:
+            return _normalize_states(states)
+        if self._state_repository is None:
+            return {}
+        return {
+            config.symbol: self._state_repository.get_or_create(config.symbol) for config in configs
+        }
 
 
 def _validate_configs(configs: Sequence[IPOTrackingConfig]) -> tuple[IPOTrackingConfig, ...]:

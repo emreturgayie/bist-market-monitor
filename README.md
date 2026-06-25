@@ -6,7 +6,7 @@ Borsa İstanbul'da halka arz olan hisseleri takip eden ve tavan bozulma sinyalin
 
 ## Durum
 
-🚧 Faz 7: Tek seferlik uçtan uca izleme komutu hazır.
+🚧 Faz 8: SQLite tabanlı yerel IPO takip durumu kalıcılığı hazır.
 
 ## Kapsam v1
 

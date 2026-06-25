@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -20,6 +21,7 @@ class Settings(BaseSettings):
     tracked_symbols: tuple[str, ...] = Field(default_factory=tuple)
     yfinance_retry_attempts: int = Field(default=3, ge=1)
     yfinance_retry_wait_seconds: float = Field(default=1.0, ge=0)
+    sqlite_database_path: Path = Path("tavan_takip.sqlite3")
 
     @field_validator("tracked_symbols", mode="before")
     @classmethod
