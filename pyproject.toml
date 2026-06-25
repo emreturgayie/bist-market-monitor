@@ -11,6 +11,9 @@ dependencies = [
     "yfinance>=0.2",
 ]
 
+[project.scripts]
+tavan-takip = "tavan_takip.main:main"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",

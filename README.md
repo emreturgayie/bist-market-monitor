@@ -6,7 +6,7 @@ Borsa İstanbul'da halka arz olan hisseleri takip eden ve tavan bozulma sinyalin
 
 ## Durum
 
-🚧 Faz 6: Piyasa seansı, veri sağlayıcı ve IPO takip motorunu birleştiren izleme orkestratörü hazır.
+🚧 Faz 7: Tek seferlik uçtan uca izleme komutu hazır.
 
 ## Kapsam v1
 
