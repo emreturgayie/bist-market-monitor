@@ -6,7 +6,7 @@ Borsa İstanbul'da halka arz olan hisseleri takip eden ve tavan bozulma sinyalin
 
 ## Durum
 
-🚧 Faz 2: Konfigürasyon, domain modeli ve ilk piyasa veri adaptörü hazır.
+🚧 Faz 3: IPO tavan bozulma tespit motoru domain katmanında hazır.
 
 ## Kapsam v1
 
