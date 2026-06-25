@@ -6,7 +6,7 @@ Borsa İstanbul'da halka arz olan hisseleri takip eden ve tavan bozulma sinyalin
 
 ## Durum
 
-🚧 Faz 3: IPO tavan bozulma tespit motoru domain katmanında hazır.
+🚧 Faz 4: IPO takip motoru ve tavan serisi durum yönetimi domain katmanında hazır.
 
 ## Kapsam v1
 
