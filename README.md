@@ -6,7 +6,7 @@ Borsa İstanbul'da halka arz olan hisseleri takip eden ve tavan bozulma sinyalin
 
 ## Durum
 
-🚧 Faz 11: Docker ve Docker Compose ile çalıştırma desteği hazır.
+🚧 Faz 12: GitHub Actions CI kalite kontrol hattı hazır.
 
 ## Kapsam v1
 
