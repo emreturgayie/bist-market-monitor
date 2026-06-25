@@ -1,0 +1,16 @@
+services:
+  app:
+    build:
+      context: .
+    image: bist-market-monitor:local
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      TAVAN_TAKIP_SQLITE_DATABASE_PATH: ${TAVAN_TAKIP_SQLITE_DATABASE_PATH:-/data/tavan_takip.sqlite3}
+    volumes:
+      - sqlite-data:/data
+    restart: "no"
+
+volumes:
+  sqlite-data:

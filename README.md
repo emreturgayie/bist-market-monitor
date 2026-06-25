@@ -6,7 +6,7 @@ Borsa İstanbul'da halka arz olan hisseleri takip eden ve tavan bozulma sinyalin
 
 ## Durum
 
-🚧 Faz 10: Adaptif izleme zamanlama politikası hazır.
+🚧 Faz 11: Docker ve Docker Compose ile çalıştırma desteği hazır.
 
 ## Kapsam v1
 
@@ -23,3 +23,13 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 
 ```
+
+## Docker
+
+```bash
+cp .env.example .env
+# .env içindeki TAVAN_TAKIP_TRACKED_SYMBOLS değerini doldurun
+docker compose up --build
+```
+
+SQLite verisi Docker volume üzerinde `/data/tavan_takip.sqlite3` yolunda saklanır.
