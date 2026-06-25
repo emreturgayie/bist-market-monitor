@@ -19,7 +19,7 @@ from tavan_takip.data_providers import DataProvider
 from tavan_takip.domain import IPOTrackingConfig, IPOTrackingState
 from tavan_takip.market import DEFAULT_MARKET_TIMEZONE, MarketSessionEngine
 from tavan_takip.notifications import Notifier
-from tavan_takip.persistence import IPOTrackingStateRepository
+from tavan_takip.persistence import BreakAlertRepository, IPOTrackingStateRepository
 
 DISCLAIMER = "Not investment advice."
 
@@ -39,6 +39,7 @@ def run_monitoring_cycle(
     output: TextIO,
     market_session_engine: MarketSessionEngine | None = None,
     state_repository: IPOTrackingStateRepository | None = None,
+    alert_repository: BreakAlertRepository | None = None,
     notifier: Notifier | None = None,
     now_provider: Callable[[], datetime] | None = None,
 ) -> CliRunOutcome:
@@ -56,6 +57,7 @@ def run_monitoring_cycle(
         data_provider=data_provider,
         market_session_engine=market_session_engine or MarketSessionEngine(),
         state_repository=state_repository,
+        alert_repository=alert_repository,
         notifier=notifier,
     )
     result = orchestrator.run(

@@ -14,6 +14,7 @@ from tavan_takip.application import (
     SymbolMonitoringStatus,
 )
 from tavan_takip.data_providers import DataProvider, DataProviderNoDataError
+from tavan_takip.data_providers import DataProviderError
 from tavan_takip.domain import IPOTrackingConfig, IPOTrackingState, MarketQuote, MonitoringMode
 from tavan_takip.market import DEFAULT_MARKET_TIMEZONE
 from tavan_takip.notifications import NotificationMessage
@@ -46,6 +47,25 @@ class FakeNotifier:
         if self._error is not None:
             raise self._error
         self.messages.append(message)
+
+
+class FailingDataProvider(DataProvider):
+    """Provider fake that can fail per symbol."""
+
+    def __init__(self, quotes: dict[str, MarketQuote], failures: dict[str, Exception]) -> None:
+        self._quotes = quotes
+        self._failures = failures
+        self.requested_symbols: list[str] = []
+
+    def get_quote(self, symbol: str) -> MarketQuote:
+        self.requested_symbols.append(symbol)
+        failure = self._failures.get(symbol)
+        if failure is not None:
+            raise failure
+        quote = self._quotes.get(symbol)
+        if quote is None:
+            raise DataProviderNoDataError(f"missing quote for {symbol}")
+        return quote
 
 
 def make_quote(
@@ -159,6 +179,28 @@ def test_multiple_symbols_handled() -> None:
     assert bravo_result.ceiling_signal.should_alert is True
 
 
+def test_provider_error_is_captured_per_symbol_and_other_symbols_continue() -> None:
+    provider = FailingDataProvider(
+        quotes={"BRAVO.IS": make_quote(symbol="BRAVO.IS")},
+        failures={"ALFA.IS": DataProviderError("provider timed out")},
+    )
+    orchestrator = MonitoringOrchestrator(data_provider=provider)
+
+    result = orchestrator.run(
+        checked_at=datetime(2026, 1, 5, 10, 30, tzinfo=DEFAULT_MARKET_TIMEZONE),
+        configs=[
+            IPOTrackingConfig(symbol="ALFA.IS"),
+            IPOTrackingConfig(symbol="BRAVO.IS"),
+        ],
+    )
+
+    assert provider.requested_symbols == ["ALFA.IS", "BRAVO.IS"]
+    assert result.symbol_results[0].status == SymbolMonitoringStatus.PROVIDER_ERROR
+    assert result.symbol_results[0].error_message == "provider timed out"
+    assert result.symbol_results[1].status == SymbolMonitoringStatus.PROCESSED
+    assert result.symbol_results[1].tracking_result is not None
+
+
 def test_explicit_state_is_used_without_global_state() -> None:
     provider = FakeDataProvider(quotes={"ORNEK.IS": make_quote(symbol="ORNEK.IS")})
     orchestrator = MonitoringOrchestrator(data_provider=provider)
@@ -262,6 +304,66 @@ def test_orchestrator_sends_notification_on_break_signal() -> None:
     assert result.symbol_results[0].notification_error is None
 
 
+def test_orchestrator_deduplicates_break_notifications_with_alert_repository(
+    tmp_path: Path,
+) -> None:
+    repository = SQLiteIPOTrackingStateRepository(tmp_path / "tracking.sqlite3")
+    notifier = FakeNotifier()
+    provider = FakeDataProvider(quotes={"ORNEK.IS": make_quote(symbol="ORNEK.IS", price="10.95")})
+    orchestrator = MonitoringOrchestrator(
+        data_provider=provider,
+        state_repository=repository,
+        alert_repository=repository,
+        notifier=notifier,
+    )
+    config = IPOTrackingConfig(symbol="ORNEK.IS")
+
+    first_result = orchestrator.run(
+        checked_at=datetime(2026, 1, 5, 10, 30, tzinfo=DEFAULT_MARKET_TIMEZONE),
+        configs=[config],
+    )
+    second_result = orchestrator.run(
+        checked_at=datetime(2026, 1, 5, 10, 45, tzinfo=DEFAULT_MARKET_TIMEZONE),
+        configs=[config],
+    )
+
+    assert len(notifier.messages) == 1
+    assert first_result.symbol_results[0].notification_sent is True
+    assert second_result.symbol_results[0].notification_sent is False
+    assert second_result.symbol_results[0].notification_error is None
+
+
+def test_orchestrator_clears_alert_dedupe_when_symbol_recovers(tmp_path: Path) -> None:
+    repository = SQLiteIPOTrackingStateRepository(tmp_path / "tracking.sqlite3")
+    notifier = FakeNotifier()
+    provider = FakeDataProvider(quotes={"ORNEK.IS": make_quote(symbol="ORNEK.IS", price="10.95")})
+    orchestrator = MonitoringOrchestrator(
+        data_provider=provider,
+        state_repository=repository,
+        alert_repository=repository,
+        notifier=notifier,
+    )
+    config = IPOTrackingConfig(symbol="ORNEK.IS")
+
+    orchestrator.run(
+        checked_at=datetime(2026, 1, 5, 10, 30, tzinfo=DEFAULT_MARKET_TIMEZONE),
+        configs=[config],
+    )
+    provider._quotes["ORNEK.IS"] = make_quote(symbol="ORNEK.IS", price="11.00")
+    orchestrator.run(
+        checked_at=datetime(2026, 1, 6, 10, 30, tzinfo=DEFAULT_MARKET_TIMEZONE),
+        configs=[config],
+    )
+    provider._quotes["ORNEK.IS"] = make_quote(symbol="ORNEK.IS", price="10.95")
+    third_result = orchestrator.run(
+        checked_at=datetime(2026, 1, 7, 10, 30, tzinfo=DEFAULT_MARKET_TIMEZONE),
+        configs=[config],
+    )
+
+    assert len(notifier.messages) == 2
+    assert third_result.symbol_results[0].notification_sent is True
+
+
 def test_orchestrator_does_not_notify_when_no_alert() -> None:
     notifier = FakeNotifier()
     provider = FakeDataProvider(quotes={"ORNEK.IS": make_quote(symbol="ORNEK.IS")})
@@ -303,3 +405,22 @@ def test_orchestrator_surfaces_notification_failure_without_crashing() -> None:
 
     assert result.symbol_results[0].notification_sent is False
     assert result.symbol_results[0].notification_error == "telegram unavailable"
+
+
+def test_notification_failure_does_not_mark_alert_as_sent(tmp_path: Path) -> None:
+    repository = SQLiteIPOTrackingStateRepository(tmp_path / "tracking.sqlite3")
+    notifier = FakeNotifier(error=RuntimeError("telegram unavailable"))
+    provider = FakeDataProvider(quotes={"ORNEK.IS": make_quote(symbol="ORNEK.IS", price="10.95")})
+    orchestrator = MonitoringOrchestrator(
+        data_provider=provider,
+        state_repository=repository,
+        alert_repository=repository,
+        notifier=notifier,
+    )
+
+    orchestrator.run(
+        checked_at=datetime(2026, 1, 5, 10, 30, tzinfo=DEFAULT_MARKET_TIMEZONE),
+        configs=[IPOTrackingConfig(symbol="ORNEK.IS")],
+    )
+
+    assert repository.has_break_alert_been_sent("ORNEK.IS") is False

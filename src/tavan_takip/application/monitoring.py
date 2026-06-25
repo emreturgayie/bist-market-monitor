@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 
-from tavan_takip.data_providers import DataProvider, DataProviderNoDataError
+from tavan_takip.data_providers import DataProvider, DataProviderError, DataProviderNoDataError
 from tavan_takip.domain import IPOTracker, IPOTrackingConfig, IPOTrackingResult, IPOTrackingState
 from tavan_takip.market import MarketSession, MarketSessionEngine
 from tavan_takip.notifications import (
@@ -15,7 +15,7 @@ from tavan_takip.notifications import (
     NotificationSeverity,
     Notifier,
 )
-from tavan_takip.persistence import IPOTrackingStateRepository
+from tavan_takip.persistence import BreakAlertRepository, IPOTrackingStateRepository
 
 
 class MonitoringRunStatus(StrEnum):
@@ -30,6 +30,7 @@ class SymbolMonitoringStatus(StrEnum):
 
     PROCESSED = "processed"
     MISSING_QUOTE = "missing_quote"
+    PROVIDER_ERROR = "provider_error"
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,12 +71,14 @@ class MonitoringOrchestrator:
         tracker: IPOTracker | None = None,
         state_repository: IPOTrackingStateRepository | None = None,
         notifier: Notifier | None = None,
+        alert_repository: BreakAlertRepository | None = None,
     ) -> None:
         self._data_provider = data_provider
         self._market_session_engine = market_session_engine or MarketSessionEngine()
         self._tracker = tracker or IPOTracker()
         self._state_repository = state_repository
         self._notifier = notifier
+        self._alert_repository = alert_repository
 
     def run(
         self,
@@ -104,7 +107,11 @@ class MonitoringOrchestrator:
             symbol_results.append(result)
             if result.status == SymbolMonitoringStatus.MISSING_QUOTE:
                 missing_symbols.append(result.symbol)
-            elif result.tracking_result is not None and self._state_repository is not None:
+            elif (
+                result.status == SymbolMonitoringStatus.PROCESSED
+                and result.tracking_result is not None
+                and self._state_repository is not None
+            ):
                 self._state_repository.save(result.tracking_result.updated_state)
 
         return MonitoringRunResult(
@@ -126,6 +133,12 @@ class MonitoringOrchestrator:
             return SymbolMonitoringResult(
                 symbol=config.symbol,
                 status=SymbolMonitoringStatus.MISSING_QUOTE,
+                error_message=str(exc),
+            )
+        except DataProviderError as exc:
+            return SymbolMonitoringResult(
+                symbol=config.symbol,
+                status=SymbolMonitoringStatus.PROVIDER_ERROR,
                 error_message=str(exc),
             )
 
@@ -161,7 +174,15 @@ class MonitoringOrchestrator:
         self,
         tracking_result: IPOTrackingResult,
     ) -> tuple[bool, str | None]:
-        if self._notifier is None or not tracking_result.ceiling_signal.should_alert:
+        if not tracking_result.ceiling_signal.should_alert:
+            if self._alert_repository is not None:
+                self._alert_repository.clear_break_alert(tracking_result.symbol)
+            return False, None
+        if self._notifier is None:
+            return False, None
+        if self._alert_repository is not None and self._alert_repository.has_break_alert_been_sent(
+            tracking_result.symbol
+        ):
             return False, None
 
         message = _build_break_notification_message(tracking_result)
@@ -169,6 +190,8 @@ class MonitoringOrchestrator:
             self._notifier.send(message)
         except Exception as exc:
             return False, str(exc)
+        if self._alert_repository is not None:
+            self._alert_repository.mark_break_alert_sent(tracking_result.symbol)
         return True, None
 
 

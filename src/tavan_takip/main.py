@@ -31,6 +31,7 @@ def main() -> int:
         settings=settings,
         data_provider=provider,
         state_repository=state_repository,
+        alert_repository=state_repository,
         notifier=notifier,
         output=sys.stdout,
     )

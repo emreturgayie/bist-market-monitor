@@ -6,6 +6,8 @@ from datetime import date
 from pathlib import Path
 import sqlite3
 
+import pytest
+
 from tavan_takip.domain import IPOTrackingLifecycleState, IPOTrackingState, MonitoringMode
 from tavan_takip.persistence import (
     SQLiteIPOTrackingStateRepository,
@@ -132,3 +134,100 @@ def test_sqlite_row_stores_required_columns(tmp_path: Path) -> None:
         row[5],
     )
     assert isinstance(row[5], str)
+
+
+def test_schema_version_is_initialized(tmp_path: Path) -> None:
+    database_path = tmp_path / "tracking.sqlite3"
+
+    SQLiteIPOTrackingStateRepository(database_path)
+
+    with sqlite3.connect(database_path) as connection:
+        version = connection.execute("SELECT version FROM schema_version").fetchone()[0]
+
+    assert version == 1
+
+
+def test_tracking_state_constraints_are_enforced(tmp_path: Path) -> None:
+    database_path = tmp_path / "tracking.sqlite3"
+    SQLiteIPOTrackingStateRepository(database_path)
+
+    with sqlite3.connect(database_path) as connection:
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute(
+                """
+                INSERT INTO ipo_tracking_states (
+                    symbol,
+                    consecutive_ceiling_days,
+                    lifecycle_state,
+                    monitoring_mode,
+                    updated_at
+                )
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                ("BAD.IS", -1, "monitoring", "early", "2026-01-01T00:00:00+00:00"),
+            )
+
+
+def test_legacy_database_is_migrated_to_versioned_schema(tmp_path: Path) -> None:
+    database_path = tmp_path / "legacy.sqlite3"
+    with sqlite3.connect(database_path) as connection:
+        connection.execute("""
+            CREATE TABLE ipo_tracking_states (
+                symbol TEXT PRIMARY KEY,
+                consecutive_ceiling_days INTEGER NOT NULL,
+                last_processed_trading_date TEXT,
+                lifecycle_state TEXT NOT NULL,
+                monitoring_mode TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """)
+        connection.execute(
+            """
+            INSERT INTO ipo_tracking_states (
+                symbol,
+                consecutive_ceiling_days,
+                last_processed_trading_date,
+                lifecycle_state,
+                monitoring_mode,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "ORNEK.IS",
+                2,
+                "2026-01-05",
+                IPOTrackingLifecycleState.MONITORING.value,
+                MonitoringMode.EARLY.value,
+                "2026-01-05T12:00:00+00:00",
+            ),
+        )
+
+    repository = SQLiteIPOTrackingStateRepository(database_path)
+
+    assert repository.load("ORNEK.IS") == IPOTrackingState(
+        symbol="ORNEK.IS",
+        consecutive_ceiling_days=2,
+        last_processed_trading_date=date(2026, 1, 5),
+    )
+    with sqlite3.connect(database_path) as connection:
+        version = connection.execute("SELECT version FROM schema_version").fetchone()[0]
+        break_alert_table = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'break_alerts'"
+        ).fetchone()
+    assert version == 1
+    assert break_alert_table is not None
+
+
+def test_break_alert_dedupe_state_can_be_marked_and_cleared(tmp_path: Path) -> None:
+    repository = SQLiteIPOTrackingStateRepository(tmp_path / "tracking.sqlite3")
+
+    assert repository.has_break_alert_been_sent("ORNEK.IS") is False
+
+    repository.mark_break_alert_sent(" ornek.is ")
+
+    assert repository.has_break_alert_been_sent("ORNEK.IS") is True
+
+    repository.clear_break_alert("ORNEK.IS")
+
+    assert repository.has_break_alert_been_sent("ORNEK.IS") is False

@@ -10,6 +10,10 @@ from typing import Any
 
 from tavan_takip.domain import IPOTrackingLifecycleState, IPOTrackingState
 
+CURRENT_SCHEMA_VERSION = 1
+VALID_LIFECYCLE_STATES = tuple(state.value for state in IPOTrackingLifecycleState)
+VALID_MONITORING_MODES = ("early", "hourly")
+
 
 @dataclass(frozen=True, slots=True)
 class SQLiteConnectionManager:
@@ -37,15 +41,16 @@ class SQLiteIPOTrackingStateRepository:
         """Create required tables when they do not already exist."""
         with self._connection_manager.connect() as connection:
             connection.execute("""
-                CREATE TABLE IF NOT EXISTS ipo_tracking_states (
-                    symbol TEXT PRIMARY KEY,
-                    consecutive_ceiling_days INTEGER NOT NULL,
-                    last_processed_trading_date TEXT,
-                    lifecycle_state TEXT NOT NULL,
-                    monitoring_mode TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
+                CREATE TABLE IF NOT EXISTS schema_version (
+                    version INTEGER NOT NULL CHECK (version >= 0)
                 )
                 """)
+            current_version = _get_schema_version(connection)
+            if current_version > CURRENT_SCHEMA_VERSION:
+                raise RuntimeError("database schema version is newer than this application")
+            if current_version < 1:
+                _migrate_to_v1(connection)
+                _set_schema_version(connection, 1)
 
     def save(self, state: IPOTrackingState) -> None:
         """Persist a tracking state, updating the row when it already exists."""
@@ -121,6 +126,36 @@ class SQLiteIPOTrackingStateRepository:
         states = [deserialize_tracking_state(row) for row in rows]
         return {state.symbol: state for state in states}
 
+    def has_break_alert_been_sent(self, symbol: str) -> bool:
+        """Return whether a break alert has been sent for the current broken state."""
+        normalized_symbol = _normalize_symbol(symbol)
+        with self._connection_manager.connect() as connection:
+            row = connection.execute(
+                "SELECT 1 FROM break_alerts WHERE symbol = ?",
+                (normalized_symbol,),
+            ).fetchone()
+        return row is not None
+
+    def mark_break_alert_sent(self, symbol: str) -> None:
+        """Record that a break alert was sent for the current broken state."""
+        normalized_symbol = _normalize_symbol(symbol)
+        with self._connection_manager.connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO break_alerts (symbol, sent_at)
+                VALUES (?, ?)
+                ON CONFLICT(symbol) DO UPDATE SET
+                    sent_at = excluded.sent_at
+                """,
+                (normalized_symbol, datetime.now(UTC).isoformat()),
+            )
+
+    def clear_break_alert(self, symbol: str) -> None:
+        """Clear a sent break-alert marker for a symbol."""
+        normalized_symbol = _normalize_symbol(symbol)
+        with self._connection_manager.connect() as connection:
+            connection.execute("DELETE FROM break_alerts WHERE symbol = ?", (normalized_symbol,))
+
 
 def serialize_tracking_state(state: IPOTrackingState) -> dict[str, Any]:
     """Serialize a domain tracking state for SQLite storage."""
@@ -158,3 +193,65 @@ def _normalize_symbol(symbol: str) -> str:
     if not normalized_symbol:
         raise ValueError("symbol must not be blank")
     return normalized_symbol
+
+
+def _get_schema_version(connection: sqlite3.Connection) -> int:
+    row = connection.execute("SELECT version FROM schema_version LIMIT 1").fetchone()
+    if row is None:
+        return 0
+    return int(row["version"])
+
+
+def _set_schema_version(connection: sqlite3.Connection, version: int) -> None:
+    connection.execute("DELETE FROM schema_version")
+    connection.execute("INSERT INTO schema_version (version) VALUES (?)", (version,))
+
+
+def _migrate_to_v1(connection: sqlite3.Connection) -> None:
+    existing_tracking_table = _table_exists(connection, "ipo_tracking_states")
+    connection.execute("DROP TABLE IF EXISTS ipo_tracking_states_new")
+    connection.execute(f"""
+        CREATE TABLE ipo_tracking_states_new (
+            symbol TEXT PRIMARY KEY CHECK (length(trim(symbol)) > 0),
+            consecutive_ceiling_days INTEGER NOT NULL CHECK (consecutive_ceiling_days >= 0),
+            last_processed_trading_date TEXT,
+            lifecycle_state TEXT NOT NULL CHECK (lifecycle_state IN {VALID_LIFECYCLE_STATES}),
+            monitoring_mode TEXT NOT NULL CHECK (monitoring_mode IN {VALID_MONITORING_MODES}),
+            updated_at TEXT NOT NULL
+        )
+        """)
+    if existing_tracking_table:
+        connection.execute("""
+            INSERT INTO ipo_tracking_states_new (
+                symbol,
+                consecutive_ceiling_days,
+                last_processed_trading_date,
+                lifecycle_state,
+                monitoring_mode,
+                updated_at
+            )
+            SELECT
+                symbol,
+                consecutive_ceiling_days,
+                last_processed_trading_date,
+                lifecycle_state,
+                monitoring_mode,
+                updated_at
+            FROM ipo_tracking_states
+            """)
+        connection.execute("DROP TABLE ipo_tracking_states")
+    connection.execute("ALTER TABLE ipo_tracking_states_new RENAME TO ipo_tracking_states")
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS break_alerts (
+            symbol TEXT PRIMARY KEY CHECK (length(trim(symbol)) > 0),
+            sent_at TEXT NOT NULL
+        )
+        """)
+
+
+def _table_exists(connection: sqlite3.Connection, table_name: str) -> bool:
+    row = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+        (table_name,),
+    ).fetchone()
+    return row is not None

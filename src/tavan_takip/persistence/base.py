@@ -21,3 +21,16 @@ class IPOTrackingStateRepository(Protocol):
 
     def load_all(self) -> dict[str, IPOTrackingState]:
         """Load all persisted tracking states keyed by symbol."""
+
+
+class BreakAlertRepository(Protocol):
+    """Port for deduplicating break-alert notifications."""
+
+    def has_break_alert_been_sent(self, symbol: str) -> bool:
+        """Return whether the current broken state has already been alerted."""
+
+    def mark_break_alert_sent(self, symbol: str) -> None:
+        """Persist that a break alert has been successfully sent."""
+
+    def clear_break_alert(self, symbol: str) -> None:
+        """Clear the sent marker after the symbol leaves the broken state."""
