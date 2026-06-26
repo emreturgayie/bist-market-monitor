@@ -128,6 +128,18 @@ The CI workflow:
 
 There is no deployment pipeline yet.
 
+## Release Artifacts
+
+The v1.0.0 release is documented through:
+
+- `VERSION`
+- `CHANGELOG.md`
+- `RELEASE.md`
+- `SECURITY.md`
+- `CONTRIBUTING.md`
+
+Package publishing and Docker image publishing are not automated yet.
+
 ## Operational Notes
 
 - The current CLI runs one monitoring cycle and exits.

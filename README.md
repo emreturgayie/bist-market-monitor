@@ -1,6 +1,7 @@
 # BIST Market Monitor
 
 [![CI](https://github.com/emreturgayie/bist-market-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/emreturgayie/bist-market-monitor/actions/workflows/ci.yml)
+![Version](https://img.shields.io/badge/version-1.0.0-blue)
 ![Python](https://img.shields.io/badge/python-3.14-blue)
 ![Docker](https://img.shields.io/badge/docker-supported-blue)
 ![License](https://img.shields.io/badge/license-see%20LICENSE-lightgrey)
@@ -13,6 +14,32 @@ and can send optional Telegram alerts.
 
 > This project is not investment advice. It is an engineering portfolio project and does not place
 > orders, execute trades, or recommend buying or selling securities.
+
+## Project Status
+
+`v1.0.0` is the first stable open-source portfolio release. The project is ready for local Docker
+deployment and demonstration use, with clear limitations around market data quality, authentication,
+and real-time provider integration.
+
+## Release
+
+- Current version: `1.0.0`
+- Release notes: [RELEASE.md](RELEASE.md)
+- Changelog: [CHANGELOG.md](CHANGELOG.md)
+- Security policy: [SECURITY.md](SECURITY.md)
+- Contributing guide: [CONTRIBUTING.md](CONTRIBUTING.md)
+
+## Support Matrix
+
+| Area | Supported in v1.0.0 | Notes |
+| --- | --- | --- |
+| Python | `3.14` | CI and Docker target Python 3.14 |
+| Runtime | Local Python, Docker Compose | Docker Compose runs the production runner by default |
+| Persistence | SQLite | Intended for local/single-process operation |
+| Data providers | yfinance, AlgoLab mock | yfinance is demo/delayed; AlgoLab is mock-only |
+| Notifications | Telegram | Optional; requires bot token and chat ID |
+| Dashboard | Read-only FastAPI dashboard | Authentication is future work |
+| Trading | Not supported | No broker integration or order execution |
 
 ## Problem Statement
 
@@ -58,6 +85,9 @@ This project provides a modular monitoring foundation that can:
 - [Architecture Decisions](docs/decisions.md): lightweight ADRs for the major engineering choices.
 - [Roadmap](docs/roadmap.md): completed milestones, short-term work, long-term work, and explicit
   future scope.
+- [Release Notes](RELEASE.md): v1.0.0 highlights, features, limitations, and roadmap.
+- [Security](SECURITY.md): security scope, financial safety, secrets, and disclosure guidance.
+- [Contributing](CONTRIBUTING.md): development workflow, style, tests, and contribution rules.
 
 ## Architecture At A Glance
 
@@ -148,6 +178,12 @@ deduplication, persistence, and Telegram notification handling.
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
+```
+
+For runtime-only use, install without development tools:
+
+```bash
+pip install .
 ```
 
 ### Docker Compose

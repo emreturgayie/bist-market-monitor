@@ -20,6 +20,7 @@
 - Read-only FastAPI monitoring dashboard
 - Production data provider selection foundation with AlgoLab mock adapter
 - Long-running production monitoring runner
+- v1.0.0 release engineering documentation
 - 136 automated tests
 
 ## Short-Term Roadmap
@@ -39,7 +40,7 @@
 - Add configurable tick-size rules for BIST price bands.
 - Add additional notification channels.
 - Add deployment documentation for a long-running production environment.
-- Prepare a public release with versioned artifacts and changelog discipline.
+- Add formal package publishing workflow when the project is ready for distribution beyond GitHub.
 
 ## Explicit Future Work
 

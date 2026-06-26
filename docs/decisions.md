@@ -68,8 +68,8 @@ Production-grade data should come from an official or licensed provider.
 **Rationale:** Docker Compose gives a repeatable runtime environment and a straightforward SQLite
 volume setup.
 
-**Consequence:** The image is not a full production deployment platform. It runs one CLI cycle unless
-combined with an external scheduler or future runner.
+**Consequence:** Docker Compose runs the production runner by default and can run the read-only
+dashboard through an optional profile. Image publishing is not automated yet.
 
 ## ADR 007: Use GitHub Actions for CI
 
