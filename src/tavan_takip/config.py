@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     telegram_chat_id: str | None = None
     telegram_retry_attempts: int = Field(default=3, ge=1)
     telegram_retry_wait_seconds: float = Field(default=1.0, ge=0)
+    dashboard_host: str = "127.0.0.1"
+    dashboard_port: int = Field(default=8000, ge=1, le=65535)
 
     @field_validator("tracked_symbols", mode="before")
     @classmethod

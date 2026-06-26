@@ -144,7 +144,7 @@ def test_schema_version_is_initialized(tmp_path: Path) -> None:
     with sqlite3.connect(database_path) as connection:
         version = connection.execute("SELECT version FROM schema_version").fetchone()[0]
 
-    assert version == 1
+    assert version == 2
 
 
 def test_tracking_state_constraints_are_enforced(tmp_path: Path) -> None:
@@ -215,7 +215,7 @@ def test_legacy_database_is_migrated_to_versioned_schema(tmp_path: Path) -> None
         break_alert_table = connection.execute(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'break_alerts'"
         ).fetchone()
-    assert version == 1
+    assert version == 2
     assert break_alert_table is not None
 
 
@@ -231,3 +231,22 @@ def test_break_alert_dedupe_state_can_be_marked_and_cleared(tmp_path: Path) -> N
     repository.clear_break_alert("ORNEK.IS")
 
     assert repository.has_break_alert_been_sent("ORNEK.IS") is False
+
+
+def test_break_alert_events_are_listed_newest_first(tmp_path: Path) -> None:
+    repository = SQLiteIPOTrackingStateRepository(tmp_path / "tracking.sqlite3")
+
+    repository.mark_break_alert_sent("ALFA.IS")
+    repository.mark_break_alert_sent("BRAVO.IS")
+
+    alerts = repository.list_alerts(limit=2)
+
+    assert [alert.symbol for alert in alerts] == ["BRAVO.IS", "ALFA.IS"]
+    assert alerts[0].sent_at.tzinfo is not None
+
+
+def test_list_alerts_rejects_invalid_limit(tmp_path: Path) -> None:
+    repository = SQLiteIPOTrackingStateRepository(tmp_path / "tracking.sqlite3")
+
+    with pytest.raises(ValueError, match="limit"):
+        repository.list_alerts(limit=0)

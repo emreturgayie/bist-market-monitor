@@ -16,6 +16,14 @@ Run one monitoring cycle:
 TAVAN_TAKIP_TRACKED_SYMBOLS=THYAO.IS,SISE.IS tavan-takip
 ```
 
+Run the read-only dashboard:
+
+```bash
+TAVAN_TAKIP_TRACKED_SYMBOLS=THYAO.IS,SISE.IS tavan-takip-dashboard
+```
+
+The dashboard listens on `127.0.0.1:8000` by default.
+
 Run quality checks:
 
 ```bash
@@ -51,6 +59,15 @@ Run a one-off container:
 docker compose run --rm app
 ```
 
+Run the dashboard container:
+
+```bash
+docker compose --profile dashboard up dashboard --build
+```
+
+The dashboard is available at `http://localhost:8000` unless `TAVAN_TAKIP_DASHBOARD_PORT` is
+changed.
+
 ## Environment Variables
 
 | Variable | Purpose |
@@ -63,6 +80,8 @@ docker compose run --rm app
 | `TAVAN_TAKIP_TELEGRAM_CHAT_ID` | Telegram chat ID |
 | `TAVAN_TAKIP_TELEGRAM_RETRY_ATTEMPTS` | Telegram retry attempts |
 | `TAVAN_TAKIP_TELEGRAM_RETRY_WAIT_SECONDS` | wait time between Telegram retries |
+| `TAVAN_TAKIP_DASHBOARD_HOST` | dashboard bind host |
+| `TAVAN_TAKIP_DASHBOARD_PORT` | dashboard bind port |
 
 Telegram variables are optional. If token or chat ID is missing, Telegram notifications are disabled.
 
@@ -103,6 +122,7 @@ There is no deployment pipeline yet.
 ## Operational Notes
 
 - The current CLI runs one monitoring cycle and exits.
+- The dashboard is read-only and shows persisted SQLite state.
 - A production runner or external scheduler is future work.
 - SQLite is suitable for local/single-process use.
 - yfinance data can be delayed, incomplete, or unavailable.

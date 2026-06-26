@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | BIST Market Monitor{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
+{% endblock %}
+
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Monitoring Dashboard</h1>
+    <p>Current persisted tracking state for configured IPO symbols.</p>
+  </div>
+  <div class="timestamp">
+    <span>Current time</span>
+    <strong>{{ overview.current_time.isoformat() }}</strong>
+  </div>
+</section>
+
+<section class="metric-grid" aria-label="Dashboard summary">
+  <article class="metric">
+    <span>Market status</span>
+    <strong class="status status-{{ overview.market_session.status.value }}">
+      {{ overview.market_session.status.value }}
+    </strong>
+  </article>
+  <article class="metric">
+    <span>Tracked symbols</span>
+    <strong>{{ overview.tracked_symbol_count }}</strong>
+  </article>
+  <article class="metric">
+    <span>Early mode</span>
+    <strong>{{ overview.monitoring_mode_summary.early }}</strong>
+  </article>
+  <article class="metric">
+    <span>Hourly mode</span>
+    <strong>{{ overview.monitoring_mode_summary.hourly }}</strong>
+  </article>
+</section>
+
+<section class="content-grid">
+  <section class="panel">
+    <div class="section-heading">
+      <h2>Symbols</h2>
+      <span>{{ overview.tracked_symbol_count }} configured</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Symbol</th>
+            <th>Ceiling days</th>
+            <th>Lifecycle</th>
+            <th>Mode</th>
+            <th>Last trading date</th>
+            <th>Alert</th>
+          </tr>
+        </thead>
+        <tbody
+          id="symbols-body"
+          hx-get="/symbols/table"
+          hx-trigger="load, every 30s"
+          hx-swap="innerHTML"
+        >
+          {% set symbols = overview.symbols %}
+          {% include "symbols_table.html" with context %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel chart-panel">
+    <div class="section-heading">
+      <h2>Ceiling Streaks</h2>
+      <span>Consecutive days</span>
+    </div>
+    <canvas id="ceilingDaysChart" height="260"></canvas>
+  </section>
+</section>
+
+<script>
+  window.addEventListener("DOMContentLoaded", () => {
+    const chartElement = document.getElementById("ceilingDaysChart");
+    if (!chartElement || !window.Chart) {
+      return;
+    }
+
+    new Chart(chartElement, {
+      type: "bar",
+      data: {
+        labels: {{ overview.chart_labels | tojson }},
+        datasets: [{
+          label: "Consecutive ceiling days",
+          data: {{ overview.chart_values | tojson }},
+          backgroundColor: "#2563eb",
+          borderColor: "#1d4ed8",
+          borderWidth: 1,
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { precision: 0 }
+          }
+        },
+        plugins: {
+          legend: { display: false }
+        }
+      }
+    });
+  });
+</script>
+{% endblock %}

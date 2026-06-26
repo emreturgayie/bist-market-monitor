@@ -9,6 +9,8 @@ def test_settings_use_safe_defaults() -> None:
     assert settings.tracked_symbols == ()
     assert settings.yfinance_retry_attempts == 3
     assert settings.yfinance_retry_wait_seconds == 1.0
+    assert settings.dashboard_host == "127.0.0.1"
+    assert settings.dashboard_port == 8000
 
 
 def test_settings_parse_comma_separated_symbols() -> None:

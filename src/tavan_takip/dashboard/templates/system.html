@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}System Status | BIST Market Monitor{% endblock %}
+
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>System Status</h1>
+    <p>Runtime configuration and operational status.</p>
+  </div>
+  <div class="timestamp">
+    <span>Current time</span>
+    <strong>{{ view.current_time.isoformat() }}</strong>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="table-wrap">
+    <table>
+      <tbody class="key-value">
+        <tr>
+          <th>Docker status</th>
+          <td>{{ view.docker_status }}</td>
+        </tr>
+        <tr>
+          <th>Database path</th>
+          <td><code>{{ view.database_path }}</code></td>
+        </tr>
+        <tr>
+          <th>Scheduler status</th>
+          <td>{{ view.scheduler_status }}</td>
+        </tr>
+        <tr>
+          <th>Telegram</th>
+          <td>{{ view.telegram_status }}</td>
+        </tr>
+        <tr>
+          <th>Data provider</th>
+          <td>{{ view.data_provider }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

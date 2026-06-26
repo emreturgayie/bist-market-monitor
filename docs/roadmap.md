@@ -16,20 +16,23 @@
 - Docker and Docker Compose support
 - GitHub Actions CI
 - Professional README
-- 113 automated tests
+- Engineering documentation
+- Read-only FastAPI monitoring dashboard
+- 121 automated tests
 
 ## Short-Term Roadmap
 
 - Add a production runner that uses the adaptive scheduler policy.
 - Add better CLI error handling for operational failures.
 - Add Docker image build validation to CI.
+- Add dashboard authentication before any public deployment.
 - Improve README examples with real but safe sample configurations.
 - Add architecture decision records as files if the decision log grows.
 
 ## Long-Term Roadmap
 
 - Add AlgoLab or another licensed/official real-time data provider adapter.
-- Add a production dashboard for monitoring state and alert history.
+- Expand the dashboard with historical charts and richer operational views.
 - Add richer BIST calendar support, including half-days and official holidays.
 - Add configurable tick-size rules for BIST price bands.
 - Add additional notification channels.
@@ -42,7 +45,7 @@ These items are not currently implemented:
 
 - AlgoLab or real-time licensed market data integration
 - continuous production runner
-- web dashboard
+- authenticated public dashboard deployment
 - public release process
 - broker integration
 - automatic trading

@@ -2,9 +2,19 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol
 
 from tavan_takip.domain import IPOTrackingState
+
+
+@dataclass(frozen=True, slots=True)
+class BreakAlertRecord:
+    """Persisted record of a sent break alert."""
+
+    symbol: str
+    sent_at: datetime
 
 
 class IPOTrackingStateRepository(Protocol):
@@ -34,3 +44,10 @@ class BreakAlertRepository(Protocol):
 
     def clear_break_alert(self, symbol: str) -> None:
         """Clear the sent marker after the symbol leaves the broken state."""
+
+
+class BreakAlertReadRepository(Protocol):
+    """Port for reading sent break-alert history."""
+
+    def list_alerts(self, limit: int = 20) -> tuple[BreakAlertRecord, ...]:
+        """Return recent break-alert records ordered newest first."""

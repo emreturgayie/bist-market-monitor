@@ -2,9 +2,11 @@
 
 ## System Overview
 
-BIST Market Monitor is a modular Python monitoring application. The current product surface is a
-one-shot CLI that can evaluate configured BIST IPO symbols, persist local tracking state, and send
-optional Telegram alerts when the ceiling-break detector emits an alertable signal.
+BIST Market Monitor is a modular Python monitoring application. The current product surfaces are a
+one-shot CLI and a read-only FastAPI dashboard. The CLI can evaluate configured BIST IPO symbols,
+persist local tracking state, and send optional Telegram alerts when the ceiling-break detector
+emits an alertable signal. The dashboard visualizes persisted state, recent alert records, market
+status, and runtime configuration.
 
 The system is intentionally built as a platform foundation rather than a single script. The IPO
 ceiling-break detector is the first monitoring module; future modules can reuse the same market
@@ -17,7 +19,7 @@ The repository follows Clean Architecture principles:
 - Business rules are in the domain layer.
 - Application orchestration depends on domain ports and adapters, not concrete external services.
 - Infrastructure adapters implement external concerns such as yfinance, SQLite, and Telegram.
-- Domain objects do not import yfinance, SQLite, Telegram, Docker, or CLI modules.
+- Domain objects do not import yfinance, SQLite, Telegram, Docker, CLI, or dashboard modules.
 
 Dependency direction:
 
@@ -57,9 +59,24 @@ Responsibilities:
 - pass quotes through the IPO tracker,
 - persist updated state when a repository is injected,
 - send notifications when a notifier is injected,
-- render CLI output.
+- render CLI output,
+- build dashboard read models from settings and repository ports.
 
 The application layer coordinates work but avoids embedding business rules that belong in the domain.
+
+### Dashboard Interface
+
+Location: `src/tavan_takip/dashboard/`
+
+Responsibilities:
+
+- expose FastAPI routes,
+- render Jinja2 templates,
+- serve static dashboard assets,
+- use HTMX for lightweight table refreshes,
+- use Chart.js for simple persisted-state visualization.
+
+The dashboard is read-only. It does not fetch quotes, send notifications, or run monitoring cycles.
 
 ### Data Provider Layer
 
@@ -123,10 +140,12 @@ The scheduler is policy-only. It does not run an infinite loop.
 flowchart TD
     subgraph Interface["Interface"]
         CLI["CLI<br/>main.py"]
+        Dashboard["FastAPI Dashboard"]
     end
 
     subgraph Application["Application"]
         App["MonitoringOrchestrator"]
+        ReadModels["Dashboard Read Models"]
         Scheduler["Scheduler Policy"]
     end
 
@@ -153,8 +172,11 @@ flowchart TD
     end
 
     CLI --> App
+    Dashboard --> ReadModels
     App --> Tracker
     Tracker --> Detector
+    ReadModels --> Session
+    ReadModels --> RepoPort
     App --> Session
     App --> Scheduler
     App --> DataPort
@@ -174,6 +196,8 @@ This architecture was chosen to keep the system easy to test and extend:
 - SQLite can be replaced with another persistence mechanism later.
 - Telegram can be replaced or supplemented by another notification channel.
 - Scheduler logic can evolve into a production runner without changing domain rules.
+- The dashboard can evolve independently because it consumes application read models instead of
+  domain internals.
 
 The tradeoff is a slightly larger file/module structure than a simple script. That cost is acceptable
 because the project is intended to demonstrate maintainable, production-style engineering.
@@ -181,6 +205,7 @@ because the project is intended to demonstrate maintainable, production-style en
 ## Current Limitations
 
 - The CLI runs one monitoring cycle; it does not run continuously.
+- The dashboard is read-only and shows persisted state; it does not run monitoring cycles.
 - yfinance is a demo/delayed data adapter and is not an official BIST data source.
 - BIST tick-size and holiday rules are simplified.
 - SQLite is intended for local/single-process use.

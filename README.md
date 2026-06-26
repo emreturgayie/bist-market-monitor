@@ -40,9 +40,11 @@ This project provides a modular monitoring foundation that can:
 - SQLite persistence with schema versioning and integrity constraints
 - Optional Telegram notification adapter with retry and error handling
 - End-to-end CLI for one monitoring cycle
+- FastAPI dashboard with persisted state, recent alerts, system status, HTMX updates, and Chart.js
+  visualization
 - Docker and Docker Compose support with SQLite data persisted via volume
 - GitHub Actions CI for tests, linting, formatting, and typing
-- 113 automated tests
+- 121 automated tests
 
 ## Documentation
 
@@ -61,7 +63,10 @@ This project provides a modular monitoring foundation that can:
 ```mermaid
 flowchart TD
     CLI["CLI / main.py"] --> App["Application Layer<br/>MonitoringOrchestrator"]
+    Dashboard["FastAPI Dashboard"] --> AppRead["Application Read Models"]
     App --> Domain["Domain Layer<br/>IPOTracker + CeilingBreakDetector"]
+    AppRead --> RepoPort
+    AppRead --> Market
     App --> Market["Market Session Engine"]
     App --> Scheduler["Scheduling Policy"]
     App --> ProviderPort["DataProvider Port"]
@@ -82,6 +87,7 @@ Telegram, Docker, or the CLI. Infrastructure concerns are isolated behind ports 
 ├── src/tavan_takip/
 │   ├── application/      # orchestration and CLI helpers
 │   ├── data_providers/   # provider ports and yfinance adapter
+│   ├── dashboard/        # FastAPI routes, Jinja2 templates, and static assets
 │   ├── domain/           # pure business rules and models
 │   ├── market/           # market calendar/session logic
 │   ├── notifications/    # notifier ports and Telegram adapter
@@ -180,6 +186,19 @@ TAVAN_TAKIP_TRACKED_SYMBOLS=THYAO.IS python -m tavan_takip.main
 
 If Telegram variables are not configured, the CLI still runs and prints local results only.
 
+## Running the Dashboard
+
+With an activated virtual environment:
+
+```bash
+TAVAN_TAKIP_TRACKED_SYMBOLS=THYAO.IS,SISE.IS tavan-takip-dashboard
+```
+
+Then open `http://127.0.0.1:8000`.
+
+The dashboard reads persisted SQLite state and alert records. It does not replace the CLI and does
+not fetch quotes by itself.
+
 ## Example Output
 
 ```text
@@ -204,8 +223,9 @@ black --check .
 mypy src tests
 ```
 
-The current suite contains 113 tests covering domain logic, orchestration, persistence, notification
-formatting, Telegram HTTP behavior with mocked clients, scheduler policy, and CLI output.
+The current suite contains 121 tests covering domain logic, orchestration, persistence, dashboard
+rendering, notification formatting, Telegram HTTP behavior with mocked clients, scheduler policy,
+and CLI output.
 
 ## Docker Usage
 
@@ -220,6 +240,12 @@ Run one command and remove the container afterward:
 
 ```bash
 docker compose run --rm app
+```
+
+Run the dashboard service:
+
+```bash
+docker compose --profile dashboard up dashboard --build
 ```
 
 The image runs as a non-root user. The `.env` file is not copied into the image. SQLite data is
@@ -254,6 +280,7 @@ CI runs on pushes and pull requests to `main`:
 - BIST-specific tick-size and holiday rules are simplified and configurable, not official.
 - Telegram is the only notification adapter.
 - SQLite is local-only and intended for single-process/local operation.
+- The dashboard is read-only and shows persisted state; it does not run monitoring cycles.
 
 ## Roadmap
 
@@ -263,7 +290,7 @@ CI runs on pushes and pull requests to `main`:
 - Richer alert deduplication and alert history
 - Docker image build validation in CI
 - Additional notification channels
-- Documentation site or architecture decision records
+- Documentation site or expanded architecture decision records
 
 ## Portfolio / Engineering Highlights
 
@@ -273,6 +300,7 @@ CI runs on pushes and pull requests to `main`:
 - Financial calculations use `Decimal`
 - Persistence uses explicit repositories and schema versioning
 - Notification failures do not crash monitoring runs
+- Dashboard reads application-level view models instead of embedding business logic in routes
 - Docker image avoids shipping local secrets and runs as non-root
 - CI mirrors local quality gates
 

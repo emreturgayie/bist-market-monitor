@@ -12,5 +12,25 @@ services:
       - sqlite-data:/data
     restart: "no"
 
+  dashboard:
+    build:
+      context: .
+    image: bist-market-monitor:local
+    command: ["tavan-takip-dashboard"]
+    profiles:
+      - dashboard
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      TAVAN_TAKIP_SQLITE_DATABASE_PATH: ${TAVAN_TAKIP_SQLITE_DATABASE_PATH:-/data/tavan_takip.sqlite3}
+      TAVAN_TAKIP_DASHBOARD_HOST: 0.0.0.0
+      TAVAN_TAKIP_DASHBOARD_PORT: ${TAVAN_TAKIP_DASHBOARD_PORT:-8000}
+    ports:
+      - "${TAVAN_TAKIP_DASHBOARD_PORT:-8000}:8000"
+    volumes:
+      - sqlite-data:/data
+    restart: "no"
+
 volumes:
   sqlite-data:

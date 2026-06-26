@@ -101,3 +101,17 @@ scope is explicitly changed.
 **Rationale:** The software emits technical monitoring signals, not financial recommendations.
 
 **Consequence:** Users must verify data independently and make their own financial decisions.
+
+## ADR 010: Use FastAPI, Jinja2, HTMX, and Chart.js for the Dashboard
+
+**Status:** Accepted
+
+**Decision:** Implement the first dashboard as a lightweight server-rendered FastAPI application with
+Jinja2 templates, HTMX partial refreshes, and Chart.js visualizations.
+
+**Rationale:** The dashboard should be simple, inspectable, and easy to deploy alongside the existing
+Python application. Server-rendered pages avoid a separate frontend build pipeline, while HTMX and
+Chart.js provide enough interactivity for persisted monitoring state.
+
+**Consequence:** The dashboard is read-only and intentionally modest. It does not replace the CLI,
+run monitoring cycles, or introduce a single-page application stack.

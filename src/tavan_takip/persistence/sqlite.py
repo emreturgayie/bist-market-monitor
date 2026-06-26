@@ -9,8 +9,9 @@ import sqlite3
 from typing import Any
 
 from tavan_takip.domain import IPOTrackingLifecycleState, IPOTrackingState
+from tavan_takip.persistence.base import BreakAlertRecord
 
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 2
 VALID_LIFECYCLE_STATES = tuple(state.value for state in IPOTrackingLifecycleState)
 VALID_MONITORING_MODES = ("early", "hourly")
 
@@ -51,6 +52,10 @@ class SQLiteIPOTrackingStateRepository:
             if current_version < 1:
                 _migrate_to_v1(connection)
                 _set_schema_version(connection, 1)
+                current_version = 1
+            if current_version < 2:
+                _migrate_to_v2(connection)
+                _set_schema_version(connection, 2)
 
     def save(self, state: IPOTrackingState) -> None:
         """Persist a tracking state, updating the row when it already exists."""
@@ -139,6 +144,7 @@ class SQLiteIPOTrackingStateRepository:
     def mark_break_alert_sent(self, symbol: str) -> None:
         """Record that a break alert was sent for the current broken state."""
         normalized_symbol = _normalize_symbol(symbol)
+        sent_at = datetime.now(UTC).isoformat()
         with self._connection_manager.connect() as connection:
             connection.execute(
                 """
@@ -147,7 +153,14 @@ class SQLiteIPOTrackingStateRepository:
                 ON CONFLICT(symbol) DO UPDATE SET
                     sent_at = excluded.sent_at
                 """,
-                (normalized_symbol, datetime.now(UTC).isoformat()),
+                (normalized_symbol, sent_at),
+            )
+            connection.execute(
+                """
+                INSERT INTO alert_events (symbol, sent_at)
+                VALUES (?, ?)
+                """,
+                (normalized_symbol, sent_at),
             )
 
     def clear_break_alert(self, symbol: str) -> None:
@@ -155,6 +168,28 @@ class SQLiteIPOTrackingStateRepository:
         normalized_symbol = _normalize_symbol(symbol)
         with self._connection_manager.connect() as connection:
             connection.execute("DELETE FROM break_alerts WHERE symbol = ?", (normalized_symbol,))
+
+    def list_alerts(self, limit: int = 20) -> tuple[BreakAlertRecord, ...]:
+        """Return recent break-alert records ordered newest first."""
+        if limit < 1:
+            raise ValueError("limit must be greater than zero")
+        with self._connection_manager.connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT symbol, sent_at
+                FROM alert_events
+                ORDER BY sent_at DESC, id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return tuple(
+            BreakAlertRecord(
+                symbol=str(row["symbol"]),
+                sent_at=datetime.fromisoformat(str(row["sent_at"])),
+            )
+            for row in rows
+        )
 
 
 def serialize_tracking_state(state: IPOTrackingState) -> dict[str, Any]:
@@ -246,6 +281,20 @@ def _migrate_to_v1(connection: sqlite3.Connection) -> None:
             symbol TEXT PRIMARY KEY CHECK (length(trim(symbol)) > 0),
             sent_at TEXT NOT NULL
         )
+        """)
+
+
+def _migrate_to_v2(connection: sqlite3.Connection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS alert_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            symbol TEXT NOT NULL CHECK (length(trim(symbol)) > 0),
+            sent_at TEXT NOT NULL
+        )
+        """)
+    connection.execute("""
+        CREATE INDEX IF NOT EXISTS idx_alert_events_sent_at
+        ON alert_events (sent_at DESC)
         """)
 
 

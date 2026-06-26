@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Recent Alerts | BIST Market Monitor{% endblock %}
+
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Recent Alerts</h1>
+    <p>Break-alert notifications recorded by local persistence.</p>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Symbol</th>
+          <th>Sent at</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for alert in view.alerts %}
+        <tr>
+          <td><strong>{{ alert.symbol }}</strong></td>
+          <td>{{ alert.sent_at }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="2" class="empty-state">No alerts recorded.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
