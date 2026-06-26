@@ -4,9 +4,17 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from enum import StrEnum
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class DataProviderName(StrEnum):
+    """Supported market data provider adapters."""
+
+    YFINANCE = "yfinance"
+    ALGOLAB_MOCK = "algolab_mock"
 
 
 class Settings(BaseSettings):
@@ -19,6 +27,7 @@ class Settings(BaseSettings):
     )
 
     tracked_symbols: tuple[str, ...] = Field(default_factory=tuple)
+    data_provider: DataProviderName = DataProviderName.YFINANCE
     yfinance_retry_attempts: int = Field(default=3, ge=1)
     yfinance_retry_wait_seconds: float = Field(default=1.0, ge=0)
     sqlite_database_path: Path = Path("tavan_takip.sqlite3")
@@ -38,6 +47,20 @@ class Settings(BaseSettings):
         if isinstance(value, list | tuple | set):
             return tuple(str(symbol).strip().upper() for symbol in value if str(symbol).strip())
         return value
+
+    @field_validator("data_provider", mode="before")
+    @classmethod
+    def parse_data_provider(cls, value: object) -> object:
+        """Normalize and validate the configured data provider name."""
+        if isinstance(value, DataProviderName):
+            return value
+        if isinstance(value, str):
+            normalized_value = value.strip().lower()
+            supported_values = {provider.value for provider in DataProviderName}
+            if normalized_value in supported_values:
+                return normalized_value
+        expected_values = ", ".join(provider.value for provider in DataProviderName)
+        raise ValueError(f"unsupported data_provider; expected one of: {expected_values}")
 
 
 @lru_cache

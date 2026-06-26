@@ -86,6 +86,8 @@ Responsibilities:
 
 - define the `DataProvider` port,
 - adapt yfinance into the project's `MarketQuote` model,
+- select configured provider adapters through a factory,
+- expose a network-free AlgoLab mock adapter for future integration work,
 - isolate provider-specific errors and retry behavior.
 
 ### Persistence Layer
@@ -167,6 +169,7 @@ flowchart TD
 
     subgraph Adapters["Infrastructure Adapters"]
         YFinance["yfinance Adapter"]
+        AlgoLabMock["AlgoLab Mock Adapter"]
         SQLite["SQLite Adapter"]
         Telegram["Telegram Adapter"]
     end
@@ -185,6 +188,7 @@ flowchart TD
     DataPort --> YFinance
     RepoPort --> SQLite
     NotifyPort --> Telegram
+    DataPort --> AlgoLabMock
 ```
 
 ## Why This Architecture Was Chosen
@@ -193,6 +197,7 @@ This architecture was chosen to keep the system easy to test and extend:
 
 - The ceiling-break rules can be tested without network access.
 - yfinance can be replaced with a licensed or real-time provider later.
+- AlgoLab integration can be added behind the existing data provider port later.
 - SQLite can be replaced with another persistence mechanism later.
 - Telegram can be replaced or supplemented by another notification channel.
 - Scheduler logic can evolve into a production runner without changing domain rules.

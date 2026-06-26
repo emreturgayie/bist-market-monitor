@@ -36,7 +36,7 @@ This project provides a modular monitoring foundation that can:
 - IPO tracking state with consecutive ceiling-day counting
 - Market session engine with configurable market hours, timezone, weekends, and holidays
 - Adaptive monitoring schedule policy for early and hourly monitoring modes
-- Data provider abstraction with a yfinance adapter
+- Selectable data provider architecture with yfinance demo data and an AlgoLab mock adapter
 - SQLite persistence with schema versioning and integrity constraints
 - Optional Telegram notification adapter with retry and error handling
 - End-to-end CLI for one monitoring cycle
@@ -44,7 +44,7 @@ This project provides a modular monitoring foundation that can:
   visualization
 - Docker and Docker Compose support with SQLite data persisted via volume
 - GitHub Actions CI for tests, linting, formatting, and typing
-- 122 automated tests
+- 129 automated tests
 
 ## Documentation
 
@@ -72,7 +72,8 @@ flowchart TD
     App --> ProviderPort["DataProvider Port"]
     App --> RepoPort["State Repository Port"]
     App --> NotifyPort["Notifier Port"]
-    ProviderPort --> YF["yfinance Adapter"]
+    ProviderPort --> YF["yfinance Demo Adapter"]
+    ProviderPort --> AlgoLabMock["AlgoLab Mock Adapter"]
     RepoPort --> SQLite["SQLite Adapter"]
     NotifyPort --> Telegram["Telegram Adapter"]
 ```
@@ -86,7 +87,7 @@ Telegram, Docker, or the CLI. Infrastructure concerns are isolated behind ports 
 .
 ├── src/tavan_takip/
 │   ├── application/      # orchestration and CLI helpers
-│   ├── data_providers/   # provider ports and yfinance adapter
+│   ├── data_providers/   # provider ports, factory, yfinance demo, and AlgoLab mock
 │   ├── dashboard/        # FastAPI routes, Jinja2 templates, and static assets
 │   ├── domain/           # pure business rules and models
 │   ├── market/           # market calendar/session logic
@@ -162,6 +163,7 @@ Configuration is loaded with `pydantic-settings` using the `TAVAN_TAKIP_` prefix
 | Variable | Required | Default | Description |
 | --- | --- | --- | --- |
 | `TAVAN_TAKIP_TRACKED_SYMBOLS` | Yes for monitoring | empty | Comma-separated symbols, for example `THYAO.IS,SISE.IS` |
+| `TAVAN_TAKIP_DATA_PROVIDER` | No | `yfinance` | Data provider adapter. Supported values: `yfinance`, `algolab_mock` |
 | `TAVAN_TAKIP_YFINANCE_RETRY_ATTEMPTS` | No | `3` | Retry attempts for yfinance provider failures |
 | `TAVAN_TAKIP_YFINANCE_RETRY_WAIT_SECONDS` | No | `1.0` | Wait time between yfinance retries |
 | `TAVAN_TAKIP_SQLITE_DATABASE_PATH` | No | `tavan_takip.sqlite3` locally, `/data/tavan_takip.sqlite3` in Docker | SQLite state database path |
@@ -223,9 +225,9 @@ black --check .
 mypy src tests
 ```
 
-The current suite contains 122 tests covering domain logic, orchestration, persistence, dashboard
-rendering, notification formatting, Telegram HTTP behavior with mocked clients, scheduler policy,
-and CLI output.
+The current suite contains 129 tests covering domain logic, orchestration, persistence, dashboard
+rendering, data provider selection, notification formatting, Telegram HTTP behavior with mocked
+clients, scheduler policy, and CLI output.
 
 ## Docker Usage
 
@@ -270,13 +272,16 @@ CI runs on pushes and pull requests to `main`:
 - It does not recommend buying, selling, or holding securities.
 - The current yfinance adapter is suitable for demo/development use and may provide delayed,
   incomplete, or inaccurate market data.
+- `algolab_mock` is a network-free placeholder for future AlgoLab integration; it is not a real-time
+  production data feed.
 - Always verify market data with official or licensed sources before making financial decisions.
 
 ## Current Limitations
 
 - No production scheduler loop is implemented yet.
 - No Docker-based deployment workflow is included in CI yet.
-- yfinance is the only data provider adapter.
+- yfinance is the only implemented external data adapter and is intended for demo/delayed data.
+- AlgoLab is represented by a mock adapter only; real-time AlgoLab integration is planned future work.
 - BIST-specific tick-size and holiday rules are simplified and configurable, not official.
 - Telegram is the only notification adapter.
 - SQLite is local-only and intended for single-process/local operation.
@@ -285,7 +290,7 @@ CI runs on pushes and pull requests to `main`:
 ## Roadmap
 
 - Production scheduling loop
-- Official or licensed BIST-compatible data provider adapter
+- Real AlgoLab or another licensed BIST-compatible data provider adapter
 - Better BIST calendar and half-day session support
 - Richer alert deduplication and alert history
 - Docker image build validation in CI

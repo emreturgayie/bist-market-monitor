@@ -18,7 +18,8 @@
 - Professional README
 - Engineering documentation
 - Read-only FastAPI monitoring dashboard
-- 122 automated tests
+- Production data provider selection foundation with AlgoLab mock adapter
+- 129 automated tests
 
 ## Short-Term Roadmap
 
@@ -31,7 +32,7 @@
 
 ## Long-Term Roadmap
 
-- Add AlgoLab or another licensed/official real-time data provider adapter.
+- Replace the AlgoLab mock with a real licensed/official real-time data provider adapter.
 - Expand the dashboard with historical charts and richer operational views.
 - Add richer BIST calendar support, including half-days and official holidays.
 - Add configurable tick-size rules for BIST price bands.
@@ -43,7 +44,7 @@
 
 These items are not currently implemented:
 
-- AlgoLab or real-time licensed market data integration
+- Real AlgoLab or real-time licensed market data integration
 - continuous production runner
 - authenticated public dashboard deployment
 - public release process

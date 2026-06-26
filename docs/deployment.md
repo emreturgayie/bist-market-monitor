@@ -73,6 +73,7 @@ changed.
 | Variable | Purpose |
 | --- | --- |
 | `TAVAN_TAKIP_TRACKED_SYMBOLS` | Comma-separated symbols to monitor |
+| `TAVAN_TAKIP_DATA_PROVIDER` | Data provider adapter: `yfinance` or `algolab_mock` |
 | `TAVAN_TAKIP_YFINANCE_RETRY_ATTEMPTS` | yfinance retry attempts |
 | `TAVAN_TAKIP_YFINANCE_RETRY_WAIT_SECONDS` | wait time between yfinance retries |
 | `TAVAN_TAKIP_SQLITE_DATABASE_PATH` | SQLite database path |
@@ -84,6 +85,8 @@ changed.
 | `TAVAN_TAKIP_DASHBOARD_PORT` | dashboard bind port |
 
 Telegram variables are optional. If token or chat ID is missing, Telegram notifications are disabled.
+The `algolab_mock` data provider is network-free and exists only as a placeholder for future real
+AlgoLab integration.
 
 ## SQLite Volume
 

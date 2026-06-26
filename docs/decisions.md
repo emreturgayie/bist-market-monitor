@@ -115,3 +115,19 @@ Chart.js provide enough interactivity for persisted monitoring state.
 
 **Consequence:** The dashboard is read-only and intentionally modest. It does not replace the CLI,
 run monitoring cycles, or introduce a single-page application stack.
+
+## ADR 011: Add Provider Selection with an AlgoLab Mock Adapter
+
+**Status:** Accepted
+
+**Decision:** Add `TAVAN_TAKIP_DATA_PROVIDER` with `yfinance` and `algolab_mock` options. Keep
+yfinance as the default demo provider and add a network-free AlgoLab mock adapter.
+
+**Rationale:** The system needs a clean extension point for production-grade BIST data providers
+before real credentials, API behavior, and licensing details are introduced. A mock adapter lets the
+application, CLI, dashboard, and tests exercise provider selection without making unsupported claims
+about real AlgoLab integration.
+
+**Consequence:** `algolab_mock` is not a live data provider and performs no network calls. Real
+AlgoLab or another licensed real-time provider remains future work behind the existing `DataProvider`
+port.

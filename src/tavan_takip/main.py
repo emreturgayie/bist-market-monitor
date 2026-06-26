@@ -6,7 +6,7 @@ import sys
 
 from tavan_takip.application import run_monitoring_cycle
 from tavan_takip.config import get_settings
-from tavan_takip.data_providers import YFinanceProvider
+from tavan_takip.data_providers import create_data_provider
 from tavan_takip.notifications import TelegramNotifier
 from tavan_takip.persistence import SQLiteIPOTrackingStateRepository
 
@@ -14,10 +14,7 @@ from tavan_takip.persistence import SQLiteIPOTrackingStateRepository
 def main() -> int:
     """Run one monitoring cycle and return a process exit code."""
     settings = get_settings()
-    provider = YFinanceProvider(
-        retry_attempts=settings.yfinance_retry_attempts,
-        retry_wait_seconds=settings.yfinance_retry_wait_seconds,
-    )
+    provider = create_data_provider(settings)
     state_repository = SQLiteIPOTrackingStateRepository(settings.sqlite_database_path)
     notifier = None
     if settings.telegram_bot_token and settings.telegram_chat_id:
