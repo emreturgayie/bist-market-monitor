@@ -9,9 +9,9 @@ import sqlite3
 from typing import Any
 
 from tavan_takip.domain import IPOTrackingLifecycleState, IPOTrackingState
-from tavan_takip.persistence.base import BreakAlertRecord
+from tavan_takip.persistence.base import BreakAlertRecord, RunnerStatusRecord
 
-CURRENT_SCHEMA_VERSION = 2
+CURRENT_SCHEMA_VERSION = 3
 VALID_LIFECYCLE_STATES = tuple(state.value for state in IPOTrackingLifecycleState)
 VALID_MONITORING_MODES = ("early", "hourly")
 
@@ -56,6 +56,10 @@ class SQLiteIPOTrackingStateRepository:
             if current_version < 2:
                 _migrate_to_v2(connection)
                 _set_schema_version(connection, 2)
+                current_version = 2
+            if current_version < 3:
+                _migrate_to_v3(connection)
+                _set_schema_version(connection, 3)
 
     def save(self, state: IPOTrackingState) -> None:
         """Persist a tracking state, updating the row when it already exists."""
@@ -191,6 +195,64 @@ class SQLiteIPOTrackingStateRepository:
             for row in rows
         )
 
+    def save_runner_status(self, status: RunnerStatusRecord) -> None:
+        """Persist the latest production runner status."""
+        with self._connection_manager.connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO runner_status (
+                    id,
+                    status,
+                    last_started_at,
+                    last_execution_at,
+                    last_shutdown_at,
+                    last_error,
+                    updated_at
+                )
+                VALUES (1, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    status = excluded.status,
+                    last_started_at = excluded.last_started_at,
+                    last_execution_at = excluded.last_execution_at,
+                    last_shutdown_at = excluded.last_shutdown_at,
+                    last_error = excluded.last_error,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    status.status,
+                    _datetime_to_text(status.last_started_at),
+                    _datetime_to_text(status.last_execution_at),
+                    _datetime_to_text(status.last_shutdown_at),
+                    status.last_error,
+                    _datetime_to_text(status.updated_at),
+                ),
+            )
+
+    def load_runner_status(self) -> RunnerStatusRecord | None:
+        """Load the latest production runner status."""
+        with self._connection_manager.connect() as connection:
+            row = connection.execute("""
+                SELECT
+                    status,
+                    last_started_at,
+                    last_execution_at,
+                    last_shutdown_at,
+                    last_error,
+                    updated_at
+                FROM runner_status
+                WHERE id = 1
+                """).fetchone()
+        if row is None:
+            return None
+        return RunnerStatusRecord(
+            status=str(row["status"]),
+            last_started_at=_datetime_from_text(row["last_started_at"]),
+            last_execution_at=_datetime_from_text(row["last_execution_at"]),
+            last_shutdown_at=_datetime_from_text(row["last_shutdown_at"]),
+            last_error=(str(row["last_error"]) if row["last_error"] is not None else None),
+            updated_at=datetime.fromisoformat(str(row["updated_at"])),
+        )
+
 
 def serialize_tracking_state(state: IPOTrackingState) -> dict[str, Any]:
     """Serialize a domain tracking state for SQLite storage."""
@@ -298,9 +360,35 @@ def _migrate_to_v2(connection: sqlite3.Connection) -> None:
         """)
 
 
+def _migrate_to_v3(connection: sqlite3.Connection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS runner_status (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            status TEXT NOT NULL CHECK (length(trim(status)) > 0),
+            last_started_at TEXT,
+            last_execution_at TEXT,
+            last_shutdown_at TEXT,
+            last_error TEXT,
+            updated_at TEXT NOT NULL
+        )
+        """)
+
+
 def _table_exists(connection: sqlite3.Connection, table_name: str) -> bool:
     row = connection.execute(
         "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
         (table_name,),
     ).fetchone()
     return row is not None
+
+
+def _datetime_to_text(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    return value.isoformat()
+
+
+def _datetime_from_text(value: object) -> datetime | None:
+    if value is None:
+        return None
+    return datetime.fromisoformat(str(value))

@@ -5,6 +5,8 @@ from tavan_takip.persistence.base import (
     BreakAlertRecord,
     BreakAlertRepository,
     IPOTrackingStateRepository,
+    RunnerStatusRecord,
+    RunnerStatusRepository,
 )
 from tavan_takip.persistence.sqlite import (
     SQLiteConnectionManager,
@@ -18,6 +20,8 @@ __all__ = [
     "BreakAlertRecord",
     "BreakAlertRepository",
     "IPOTrackingStateRepository",
+    "RunnerStatusRecord",
+    "RunnerStatusRepository",
     "SQLiteConnectionManager",
     "SQLiteIPOTrackingStateRepository",
     "deserialize_tracking_state",

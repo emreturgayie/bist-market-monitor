@@ -13,6 +13,7 @@ from tavan_takip.dashboard import create_dashboard_app
 from tavan_takip.domain import IPOTrackingLifecycleState, IPOTrackingState
 from tavan_takip.market import DEFAULT_MARKET_TIMEZONE
 from tavan_takip.persistence import SQLiteIPOTrackingStateRepository
+from tavan_takip.persistence import RunnerStatusRecord
 
 DASHBOARD_TIME = datetime(2026, 1, 5, 10, 30, tzinfo=DEFAULT_MARKET_TIMEZONE)
 
@@ -154,9 +155,20 @@ def test_system_status_page_renders_runtime_status(tmp_path: Path) -> None:
         telegram_bot_token="token",
         telegram_chat_id="chat",
     )
+    repository.save_runner_status(
+        RunnerStatusRecord(
+            status="running",
+            last_execution_at=DASHBOARD_TIME,
+            updated_at=DASHBOARD_TIME,
+        )
+    )
     client = TestClient(
         create_dashboard_app(
-            dashboard_service=_make_service(settings=settings, repository=repository)
+            dashboard_service=_make_service(
+                settings=settings,
+                repository=repository,
+                include_runner_status=True,
+            )
         )
     )
 
@@ -168,6 +180,8 @@ def test_system_status_page_renders_runtime_status(tmp_path: Path) -> None:
     assert "configured" in response.text
     assert "yfinance" in response.text
     assert "not detected" in response.text
+    assert "running" in response.text
+    assert DASHBOARD_TIME.isoformat() in response.text
 
 
 def test_dashboard_reads_broken_lifecycle_without_network(tmp_path: Path) -> None:
@@ -196,12 +210,14 @@ def _make_service(
     *,
     settings: Settings,
     repository: SQLiteIPOTrackingStateRepository,
+    include_runner_status: bool = False,
 ) -> DashboardService:
     return DashboardService(
         settings=settings,
         state_repository=repository,
         alert_repository=repository,
         alert_read_repository=repository,
+        runner_status_repository=repository if include_runner_status else None,
         now_provider=lambda: DASHBOARD_TIME,
         docker_status_provider=lambda: "not detected",
     )

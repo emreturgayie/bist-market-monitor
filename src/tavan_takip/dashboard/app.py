@@ -84,6 +84,7 @@ def _build_dashboard_service(settings: Settings) -> DashboardService:
         state_repository=repository,
         alert_repository=repository,
         alert_read_repository=repository,
+        runner_status_repository=repository,
         market_session_engine=MarketSessionEngine(),
         data_provider_name=settings.data_provider.value,
     )

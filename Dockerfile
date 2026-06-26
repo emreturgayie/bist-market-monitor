@@ -23,4 +23,4 @@ USER app
 VOLUME ["/data"]
 EXPOSE 8000
 
-CMD ["tavan-takip"]
+CMD ["tavan-takip-runner"]

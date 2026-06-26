@@ -3,6 +3,7 @@ services:
     build:
       context: .
     image: bist-market-monitor:local
+    command: ["tavan-takip-runner"]
     env_file:
       - path: .env
         required: false

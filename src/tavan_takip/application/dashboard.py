@@ -16,9 +16,10 @@ from tavan_takip.persistence import (
     BreakAlertRecord,
     BreakAlertRepository,
     IPOTrackingStateRepository,
+    RunnerStatusRepository,
 )
 
-DEFAULT_SCHEDULER_STATUS = "policy available; production runner not configured"
+DEFAULT_SCHEDULER_STATUS = "adaptive policy active; production runner available"
 DEFAULT_DATA_PROVIDER_NAME = "yfinance"
 
 
@@ -78,6 +79,8 @@ class SystemStatusView:
     docker_status: str
     database_path: str
     scheduler_status: str
+    runner_status: str
+    runner_last_execution_at: str
     telegram_status: str
     data_provider: str
 
@@ -92,6 +95,7 @@ class DashboardService:
         state_repository: IPOTrackingStateRepository,
         alert_repository: BreakAlertRepository,
         alert_read_repository: BreakAlertReadRepository,
+        runner_status_repository: RunnerStatusRepository | None = None,
         market_session_engine: MarketSessionEngine | None = None,
         now_provider: Callable[[], datetime] | None = None,
         docker_status_provider: Callable[[], str] | None = None,
@@ -102,6 +106,7 @@ class DashboardService:
         self._state_repository = state_repository
         self._alert_repository = alert_repository
         self._alert_read_repository = alert_read_repository
+        self._runner_status_repository = runner_status_repository
         self._market_session_engine = market_session_engine or MarketSessionEngine()
         self._now_provider = now_provider or _default_now
         self._docker_status_provider = docker_status_provider or detect_docker_status
@@ -141,11 +146,14 @@ class DashboardService:
 
     def get_system_status(self) -> SystemStatusView:
         """Return display-ready runtime status details."""
+        runner_status, runner_last_execution_at = self._runner_status()
         return SystemStatusView(
             current_time=self._now_provider(),
             docker_status=self._docker_status_provider(),
             database_path=str(self._settings.sqlite_database_path),
             scheduler_status=self._scheduler_status,
+            runner_status=runner_status,
+            runner_last_execution_at=runner_last_execution_at,
             telegram_status=_telegram_status(self._settings),
             data_provider=self._data_provider_name,
         )
@@ -173,6 +181,21 @@ class DashboardService:
                 else "Never"
             ),
             alert_status="sent" if alert_sent else "clear",
+        )
+
+    def _runner_status(self) -> tuple[str, str]:
+        if self._runner_status_repository is None:
+            return "unavailable", "Never"
+        runner_status = self._runner_status_repository.load_runner_status()
+        if runner_status is None:
+            return "not started", "Never"
+        return (
+            runner_status.status,
+            (
+                runner_status.last_execution_at.isoformat()
+                if runner_status.last_execution_at is not None
+                else "Never"
+            ),
         )
 
 

@@ -19,14 +19,15 @@
 - Engineering documentation
 - Read-only FastAPI monitoring dashboard
 - Production data provider selection foundation with AlgoLab mock adapter
-- 129 automated tests
+- Long-running production monitoring runner
+- 136 automated tests
 
 ## Short-Term Roadmap
 
-- Add a production runner that uses the adaptive scheduler policy.
 - Add better CLI error handling for operational failures.
 - Add Docker image build validation to CI.
 - Add dashboard authentication before any public deployment.
+- Add production observability around runner health and execution history.
 - Improve README examples with real but safe sample configurations.
 - Add architecture decision records as files if the decision log grows.
 
@@ -45,7 +46,7 @@
 These items are not currently implemented:
 
 - Real AlgoLab or real-time licensed market data integration
-- continuous production runner
+- hosted production deployment model
 - authenticated public dashboard deployment
 - public release process
 - broker integration

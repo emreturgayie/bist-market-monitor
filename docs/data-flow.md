@@ -2,20 +2,22 @@
 
 ## End-to-End Monitoring Flow
 
-The monitoring flow starts from the CLI or another future runner and executes one monitoring cycle.
-The cycle is intentionally explicit: market status is evaluated first, quotes are fetched only when
-the market is open, each symbol is processed independently, state is persisted, and optional
+The monitoring flow starts from either the one-shot CLI or the long-running production runner. Each
+monitoring cycle is intentionally explicit: market status is evaluated first, quotes are fetched only
+when the market is open, each symbol is processed independently, state is persisted, and optional
 notifications are sent only for alertable signals that have not already been sent.
 
-The current application does not run an infinite loop. The adaptive scheduler policy decides when a
-future run should happen, but a production runner is future work.
+The production runner uses the adaptive scheduler policy to decide which symbols are due, delegates
+actual monitoring work to the existing orchestrator, records runner status, and sleeps until the
+next scheduled decision.
 
 ## Sequence Diagram
 
 ```mermaid
 sequenceDiagram
     actor User
-    participant CLI as CLI / Runner
+    participant CLI as CLI / Production Runner
+    participant Policy as MonitoringSchedulePolicy
     participant Session as MarketSessionEngine
     participant Provider as DataProvider
     participant Tracker as IPOTracker
@@ -24,6 +26,8 @@ sequenceDiagram
     participant Notifier as Telegram Notifier
 
     User->>CLI: Start one monitoring cycle
+    CLI->>Policy: Decide due symbols
+    Policy-->>CLI: NextRunDecision values
     CLI->>Session: Evaluate current datetime
     alt Market closed
         Session-->>CLI: Closed status and reason

@@ -17,6 +17,18 @@ class BreakAlertRecord:
     sent_at: datetime
 
 
+@dataclass(frozen=True, slots=True)
+class RunnerStatusRecord:
+    """Persisted operational status for the production runner."""
+
+    status: str
+    updated_at: datetime
+    last_started_at: datetime | None = None
+    last_execution_at: datetime | None = None
+    last_shutdown_at: datetime | None = None
+    last_error: str | None = None
+
+
 class IPOTrackingStateRepository(Protocol):
     """Port for storing and loading IPO tracking state."""
 
@@ -51,3 +63,13 @@ class BreakAlertReadRepository(Protocol):
 
     def list_alerts(self, limit: int = 20) -> tuple[BreakAlertRecord, ...]:
         """Return recent break-alert records ordered newest first."""
+
+
+class RunnerStatusRepository(Protocol):
+    """Port for storing production runner operational status."""
+
+    def save_runner_status(self, status: RunnerStatusRecord) -> None:
+        """Persist the latest runner status."""
+
+    def load_runner_status(self) -> RunnerStatusRecord | None:
+        """Load the latest runner status, or return None when unavailable."""

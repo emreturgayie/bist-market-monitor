@@ -3,10 +3,10 @@
 ## System Overview
 
 BIST Market Monitor is a modular Python monitoring application. The current product surfaces are a
-one-shot CLI and a read-only FastAPI dashboard. The CLI can evaluate configured BIST IPO symbols,
-persist local tracking state, and send optional Telegram alerts when the ceiling-break detector
-emits an alertable signal. The dashboard visualizes persisted state, recent alert records, market
-status, and runtime configuration.
+one-shot CLI, a long-running production runner, and a read-only FastAPI dashboard. The CLI and runner
+can evaluate configured BIST IPO symbols, persist local tracking state, and send optional Telegram
+alerts when the ceiling-break detector emits an alertable signal. The dashboard visualizes persisted
+state, recent alert records, runner status, market status, and runtime configuration.
 
 The system is intentionally built as a platform foundation rather than a single script. The IPO
 ceiling-break detector is the first monitoring module; future modules can reuse the same market
@@ -59,6 +59,7 @@ Responsibilities:
 - pass quotes through the IPO tracker,
 - persist updated state when a repository is injected,
 - send notifications when a notifier is injected,
+- run continuous monitoring through the production runner,
 - render CLI output,
 - build dashboard read models from settings and repository ports.
 
@@ -142,6 +143,7 @@ The scheduler is policy-only. It does not run an infinite loop.
 flowchart TD
     subgraph Interface["Interface"]
         CLI["CLI<br/>main.py"]
+        Runner["Production Runner"]
         Dashboard["FastAPI Dashboard"]
     end
 
@@ -175,6 +177,8 @@ flowchart TD
     end
 
     CLI --> App
+    Runner --> App
+    Runner --> Scheduler
     Dashboard --> ReadModels
     App --> Tracker
     Tracker --> Detector
@@ -200,7 +204,8 @@ This architecture was chosen to keep the system easy to test and extend:
 - AlgoLab integration can be added behind the existing data provider port later.
 - SQLite can be replaced with another persistence mechanism later.
 - Telegram can be replaced or supplemented by another notification channel.
-- Scheduler logic can evolve into a production runner without changing domain rules.
+- Scheduler logic is reused by the production runner without changing domain rules.
+- The production runner can run continuously without duplicating scheduler or detection logic.
 - The dashboard can evolve independently because it consumes application read models instead of
   domain internals.
 
@@ -209,7 +214,7 @@ because the project is intended to demonstrate maintainable, production-style en
 
 ## Current Limitations
 
-- The CLI runs one monitoring cycle; it does not run continuously.
+- The CLI runs one monitoring cycle; continuous monitoring is handled by the production runner.
 - The dashboard is read-only and shows persisted state; it does not run monitoring cycles.
 - yfinance is a demo/delayed data adapter and is not an official BIST data source.
 - BIST tick-size and holiday rules are simplified.

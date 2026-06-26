@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 import sqlite3
 
@@ -10,6 +10,7 @@ import pytest
 
 from tavan_takip.domain import IPOTrackingLifecycleState, IPOTrackingState, MonitoringMode
 from tavan_takip.persistence import (
+    RunnerStatusRecord,
     SQLiteIPOTrackingStateRepository,
     serialize_tracking_state,
 )
@@ -144,7 +145,7 @@ def test_schema_version_is_initialized(tmp_path: Path) -> None:
     with sqlite3.connect(database_path) as connection:
         version = connection.execute("SELECT version FROM schema_version").fetchone()[0]
 
-    assert version == 2
+    assert version == 3
 
 
 def test_tracking_state_constraints_are_enforced(tmp_path: Path) -> None:
@@ -215,7 +216,7 @@ def test_legacy_database_is_migrated_to_versioned_schema(tmp_path: Path) -> None
         break_alert_table = connection.execute(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'break_alerts'"
         ).fetchone()
-    assert version == 2
+    assert version == 3
     assert break_alert_table is not None
 
 
@@ -250,3 +251,17 @@ def test_list_alerts_rejects_invalid_limit(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="limit"):
         repository.list_alerts(limit=0)
+
+
+def test_runner_status_can_be_saved_and_loaded(tmp_path: Path) -> None:
+    repository = SQLiteIPOTrackingStateRepository(tmp_path / "tracking.sqlite3")
+    status = RunnerStatusRecord(
+        status="running",
+        last_started_at=datetime(2026, 1, 5, 10, 0, tzinfo=UTC),
+        last_execution_at=datetime(2026, 1, 5, 10, 30, tzinfo=UTC),
+        updated_at=datetime(2026, 1, 5, 10, 30, tzinfo=UTC),
+    )
+
+    repository.save_runner_status(status)
+
+    assert repository.load_runner_status() == status

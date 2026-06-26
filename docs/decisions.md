@@ -131,3 +131,17 @@ about real AlgoLab integration.
 **Consequence:** `algolab_mock` is not a live data provider and performs no network calls. Real
 AlgoLab or another licensed real-time provider remains future work behind the existing `DataProvider`
 port.
+
+## ADR 012: Add a Production Monitoring Runner
+
+**Status:** Accepted
+
+**Decision:** Add a long-running production runner that reuses `MonitoringSchedulePolicy`,
+`MonitoringOrchestrator`, SQLite persistence, provider factories, and optional notifiers.
+
+**Rationale:** Docker deployment needs a process that can run continuously without duplicating
+scheduling or monitoring business logic. Keeping the runner in the application layer lets it
+coordinate existing services while preserving domain and adapter boundaries.
+
+**Consequence:** Docker now defaults to the production runner. The one-shot CLI remains available for
+manual checks, and the dashboard remains a read-only interface that observes persisted runner state.

@@ -17,6 +17,7 @@ dependencies = [
 [project.scripts]
 tavan-takip = "tavan_takip.main:main"
 tavan-takip-dashboard = "tavan_takip.dashboard.app:main"
+tavan-takip-runner = "tavan_takip.runner:main"
 
 [project.optional-dependencies]
 dev = [

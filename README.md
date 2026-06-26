@@ -40,11 +40,12 @@ This project provides a modular monitoring foundation that can:
 - SQLite persistence with schema versioning and integrity constraints
 - Optional Telegram notification adapter with retry and error handling
 - End-to-end CLI for one monitoring cycle
+- Long-running production runner that reuses the scheduler policy and monitoring orchestrator
 - FastAPI dashboard with persisted state, recent alerts, system status, HTMX updates, and Chart.js
   visualization
 - Docker and Docker Compose support with SQLite data persisted via volume
 - GitHub Actions CI for tests, linting, formatting, and typing
-- 129 automated tests
+- 136 automated tests
 
 ## Documentation
 
@@ -63,6 +64,8 @@ This project provides a modular monitoring foundation that can:
 ```mermaid
 flowchart TD
     CLI["CLI / main.py"] --> App["Application Layer<br/>MonitoringOrchestrator"]
+    Runner["Production Runner"] --> App
+    Runner --> Scheduler
     Dashboard["FastAPI Dashboard"] --> AppRead["Application Read Models"]
     App --> Domain["Domain Layer<br/>IPOTracker + CeilingBreakDetector"]
     AppRead --> RepoPort
@@ -95,6 +98,7 @@ Telegram, Docker, or the CLI. Infrastructure concerns are isolated behind ports 
 │   ├── persistence/      # repository ports and SQLite adapter
 │   ├── scheduler/        # adaptive schedule policy
 │   ├── config.py         # pydantic-settings configuration
+│   ├── runner.py         # production runner entry point
 │   └── main.py           # console entry point
 ├── tests/unit/           # unit tests
 ├── docs/                 # architecture, flow, deployment, decisions, and roadmap
@@ -201,6 +205,17 @@ Then open `http://127.0.0.1:8000`.
 The dashboard reads persisted SQLite state and alert records. It does not replace the CLI and does
 not fetch quotes by itself.
 
+## Running the Production Runner
+
+With an activated virtual environment:
+
+```bash
+TAVAN_TAKIP_TRACKED_SYMBOLS=THYAO.IS,SISE.IS tavan-takip-runner
+```
+
+The runner uses the adaptive scheduler policy, persists runner status in SQLite, and stops cleanly
+on `Ctrl+C`.
+
 ## Example Output
 
 ```text
@@ -225,20 +240,20 @@ black --check .
 mypy src tests
 ```
 
-The current suite contains 129 tests covering domain logic, orchestration, persistence, dashboard
-rendering, data provider selection, notification formatting, Telegram HTTP behavior with mocked
-clients, scheduler policy, and CLI output.
+The current suite contains 136 tests covering domain logic, orchestration, persistence, production
+runner behavior, dashboard rendering, data provider selection, notification formatting, Telegram HTTP
+behavior with mocked clients, scheduler policy, and CLI output.
 
 ## Docker Usage
 
-Build and run locally:
+Build and run the production runner locally:
 
 ```bash
 cp .env.example .env
 docker compose up --build
 ```
 
-Run one command and remove the container afterward:
+Run one CLI monitoring cycle and remove the container afterward:
 
 ```bash
 docker compose run --rm app
@@ -278,18 +293,17 @@ CI runs on pushes and pull requests to `main`:
 
 ## Current Limitations
 
-- No production scheduler loop is implemented yet.
 - No Docker-based deployment workflow is included in CI yet.
 - yfinance is the only implemented external data adapter and is intended for demo/delayed data.
 - AlgoLab is represented by a mock adapter only; real-time AlgoLab integration is planned future work.
 - BIST-specific tick-size and holiday rules are simplified and configurable, not official.
 - Telegram is the only notification adapter.
 - SQLite is local-only and intended for single-process/local operation.
-- The dashboard is read-only and shows persisted state; it does not run monitoring cycles.
+- The dashboard is read-only and shows persisted state plus runner status; it does not run
+  monitoring cycles.
 
 ## Roadmap
 
-- Production scheduling loop
 - Real AlgoLab or another licensed BIST-compatible data provider adapter
 - Better BIST calendar and half-day session support
 - Richer alert deduplication and alert history

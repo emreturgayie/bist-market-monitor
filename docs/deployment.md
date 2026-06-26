@@ -16,6 +16,12 @@ Run one monitoring cycle:
 TAVAN_TAKIP_TRACKED_SYMBOLS=THYAO.IS,SISE.IS tavan-takip
 ```
 
+Run the long-running production runner:
+
+```bash
+TAVAN_TAKIP_TRACKED_SYMBOLS=THYAO.IS,SISE.IS tavan-takip-runner
+```
+
 Run the read-only dashboard:
 
 ```bash
@@ -47,7 +53,7 @@ Edit `.env` and set at least:
 TAVAN_TAKIP_TRACKED_SYMBOLS=THYAO.IS,SISE.IS
 ```
 
-Run with Docker Compose:
+Run the production runner with Docker Compose:
 
 ```bash
 docker compose up --build
@@ -125,8 +131,8 @@ There is no deployment pipeline yet.
 ## Operational Notes
 
 - The current CLI runs one monitoring cycle and exits.
+- The production runner runs continuously and stops cleanly on `Ctrl+C` or container shutdown.
 - The dashboard is read-only and shows persisted SQLite state.
-- A production runner or external scheduler is future work.
 - SQLite is suitable for local/single-process use.
 - yfinance data can be delayed, incomplete, or unavailable.
 - Provider failures are reported per symbol where possible.
