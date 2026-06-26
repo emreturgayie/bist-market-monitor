@@ -89,6 +89,19 @@ This project provides a modular monitoring foundation that can:
 - [Security](SECURITY.md): security scope, financial safety, secrets, and disclosure guidance.
 - [Contributing](CONTRIBUTING.md): development workflow, style, tests, and contribution rules.
 
+## Portfolio Materials
+
+These materials are written for CVs, GitHub profiles, LinkedIn posts, demos, and technical
+interviews:
+
+- [Portfolio Overview](docs/portfolio.md): project story, technical highlights, skills
+  demonstrated, and interview positioning.
+- [Interview Guide](docs/interview-guide.md): 30-second, 2-minute, and 5-minute explanations plus
+  common interview questions.
+- [CV Text](docs/cv.md): English and Turkish project descriptions in multiple lengths.
+- [LinkedIn Post Drafts](docs/linkedin-post.md): launch post options with an honest safety note.
+- [Demo Script](docs/demo-script.md): CLI, dashboard, Docker, 1-minute, and 3-minute demo flows.
+
 ## Architecture At A Glance
 
 ```mermaid

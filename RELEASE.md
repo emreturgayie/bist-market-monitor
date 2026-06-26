@@ -10,6 +10,9 @@ state through a lightweight dashboard.
 This release is monitoring and alerting only. It does not execute trades and is not investment
 advice.
 
+The release also includes a portfolio pack with CV-ready wording, interview talking points,
+LinkedIn post drafts, and demo scripts for presenting the project professionally.
+
 ## Features
 
 - Clean Architecture with domain, application, adapter, and infrastructure boundaries.
