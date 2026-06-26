@@ -44,7 +44,7 @@ This project provides a modular monitoring foundation that can:
   visualization
 - Docker and Docker Compose support with SQLite data persisted via volume
 - GitHub Actions CI for tests, linting, formatting, and typing
-- 121 automated tests
+- 122 automated tests
 
 ## Documentation
 
@@ -223,7 +223,7 @@ black --check .
 mypy src tests
 ```
 
-The current suite contains 121 tests covering domain logic, orchestration, persistence, dashboard
+The current suite contains 122 tests covering domain logic, orchestration, persistence, dashboard
 rendering, notification formatting, Telegram HTTP behavior with mocked clients, scheduler policy,
 and CLI output.
 

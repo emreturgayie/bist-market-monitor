@@ -2,13 +2,18 @@
 <tr>
   <td><strong>{{ symbol.symbol }}</strong></td>
   <td>{{ symbol.consecutive_ceiling_days }}</td>
-  <td><span class="pill">{{ symbol.lifecycle_status }}</span></td>
+  <td><span class="pill lifecycle-{{ symbol.lifecycle_status }}">{{ symbol.lifecycle_status }}</span></td>
   <td><span class="pill mode-{{ symbol.monitoring_mode }}">{{ symbol.monitoring_mode }}</span></td>
   <td>{{ symbol.last_processed_trading_date }}</td>
   <td><span class="pill alert-{{ symbol.alert_status }}">{{ symbol.alert_status }}</span></td>
 </tr>
 {% else %}
 <tr>
-  <td colspan="6" class="empty-state">No symbols configured.</td>
+  <td colspan="6">
+    <div class="table-empty-state">
+      <strong>No symbols configured.</strong>
+      <span>Set <code>TAVAN_TAKIP_TRACKED_SYMBOLS</code> to show tracking state here.</span>
+    </div>
+  </td>
 </tr>
 {% endfor %}

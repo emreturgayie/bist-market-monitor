@@ -10,11 +10,20 @@
   </div>
   <div class="timestamp">
     <span>Current time</span>
-    <strong>{{ view.current_time.isoformat() }}</strong>
+    <time datetime="{{ view.current_time.isoformat() }}">
+      {{ view.current_time.strftime("%Y-%m-%d %H:%M:%S %Z") }}
+    </time>
   </div>
 </section>
 
 <section class="panel">
+  <div class="section-heading">
+    <div>
+      <span class="section-kicker">Runtime</span>
+      <h2>Environment</h2>
+    </div>
+    <span>Read-only status</span>
+  </div>
   <div class="table-wrap">
     <table>
       <tbody class="key-value">

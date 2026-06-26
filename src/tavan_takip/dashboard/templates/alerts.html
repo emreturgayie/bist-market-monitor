@@ -11,6 +11,13 @@
 </section>
 
 <section class="panel">
+  <div class="section-heading">
+    <div>
+      <span class="section-kicker">Notification history</span>
+      <h2>Alert Events</h2>
+    </div>
+    <span>{{ view.alerts | length }} shown</span>
+  </div>
   <div class="table-wrap">
     <table>
       <thead>
@@ -27,7 +34,12 @@
         </tr>
         {% else %}
         <tr>
-          <td colspan="2" class="empty-state">No alerts recorded.</td>
+          <td colspan="2">
+            <div class="table-empty-state">
+              <strong>No alerts recorded.</strong>
+              <span>Break alerts will appear here after a sent notification is persisted.</span>
+            </div>
+          </td>
         </tr>
         {% endfor %}
       </tbody>

@@ -14,35 +14,72 @@
   </div>
   <div class="timestamp">
     <span>Current time</span>
-    <strong>{{ overview.current_time.isoformat() }}</strong>
+    <time datetime="{{ overview.current_time.isoformat() }}">
+      {{ overview.current_time.strftime("%Y-%m-%d %H:%M:%S %Z") }}
+    </time>
   </div>
 </section>
 
 <section class="metric-grid" aria-label="Dashboard summary">
   <article class="metric">
-    <span>Market status</span>
-    <strong class="status status-{{ overview.market_session.status.value }}">
-      {{ overview.market_session.status.value }}
+    <div class="metric-label">
+      <span class="metric-icon">MKT</span>
+      <span>Market status</span>
+    </div>
+    <strong>
+      <span class="status-badge market-{{ overview.market_session.status.value }}">
+        {{ overview.market_session.status.value }}
+      </span>
     </strong>
+    <small>{{ overview.market_session.trading_date.isoformat() }}</small>
   </article>
   <article class="metric">
-    <span>Tracked symbols</span>
+    <div class="metric-label">
+      <span class="metric-icon">SYM</span>
+      <span>Tracked symbols</span>
+    </div>
     <strong>{{ overview.tracked_symbol_count }}</strong>
+    <small>Configured for monitoring</small>
   </article>
   <article class="metric">
-    <span>Early mode</span>
+    <div class="metric-label">
+      <span class="metric-icon">EAR</span>
+      <span>Early mode</span>
+    </div>
     <strong>{{ overview.monitoring_mode_summary.early }}</strong>
+    <small>Up to 5 ceiling days</small>
   </article>
   <article class="metric">
-    <span>Hourly mode</span>
+    <div class="metric-label">
+      <span class="metric-icon">HR</span>
+      <span>Hourly mode</span>
+    </div>
     <strong>{{ overview.monitoring_mode_summary.hourly }}</strong>
+    <small>After 5 ceiling days</small>
   </article>
 </section>
+
+{% if overview.tracked_symbol_count == 0 %}
+<section class="empty-card">
+  <div>
+    <span class="empty-kicker">Setup needed</span>
+    <h2>No symbols configured</h2>
+    <p>
+      Add comma-separated BIST symbols with
+      <code>TAVAN_TAKIP_TRACKED_SYMBOLS</code>, then run a monitoring cycle to populate state.
+    </p>
+  </div>
+  <code class="command-sample">TAVAN_TAKIP_TRACKED_SYMBOLS=THYAO.IS,SISE.IS</code>
+</section>
+{% endif %}
 
 <section class="content-grid">
   <section class="panel">
     <div class="section-heading">
-      <h2>Symbols</h2>
+      <div>
+        <span class="section-kicker">State table</span>
+        <h2>Symbols</h2>
+      </div>
       <span>{{ overview.tracked_symbol_count }} configured</span>
     </div>
     <div class="table-wrap">
@@ -72,13 +109,24 @@
 
   <section class="panel chart-panel">
     <div class="section-heading">
-      <h2>Ceiling Streaks</h2>
+      <div>
+        <span class="section-kicker">Chart</span>
+        <h2>Ceiling Streaks</h2>
+      </div>
       <span>Consecutive days</span>
     </div>
+    {% if overview.chart_labels %}
     <canvas id="ceilingDaysChart" height="260"></canvas>
+    {% else %}
+    <div class="chart-empty">
+      <h3>No tracking data yet</h3>
+      <p>Configured symbols will appear here after persisted tracking state is available.</p>
+    </div>
+    {% endif %}
   </section>
 </section>
 
+{% if overview.chart_labels %}
 <script>
   window.addEventListener("DOMContentLoaded", () => {
     const chartElement = document.getElementById("ceilingDaysChart");
@@ -115,4 +163,5 @@
     });
   });
 </script>
+{% endif %}
 {% endblock %}

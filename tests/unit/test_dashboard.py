@@ -103,6 +103,27 @@ def test_symbols_table_partial_renders_empty_state(tmp_path: Path) -> None:
     assert "No symbols configured." in response.text
 
 
+def test_dashboard_homepage_renders_setup_empty_state(tmp_path: Path) -> None:
+    repository = SQLiteIPOTrackingStateRepository(tmp_path / "dashboard.sqlite3")
+    client = TestClient(
+        create_dashboard_app(
+            dashboard_service=_make_service(
+                settings=Settings(
+                    tracked_symbols=(),
+                    sqlite_database_path=tmp_path / "dashboard.sqlite3",
+                ),
+                repository=repository,
+            )
+        )
+    )
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "TAVAN_TAKIP_TRACKED_SYMBOLS" in response.text
+    assert "No tracking data yet" in response.text
+
+
 def test_recent_alerts_page_renders_alert_history(tmp_path: Path) -> None:
     repository = SQLiteIPOTrackingStateRepository(tmp_path / "dashboard.sqlite3")
     repository.mark_break_alert_sent("ORNEK.IS")

@@ -10,14 +10,23 @@
   </head>
   <body>
     <header class="topbar">
-      <div>
-        <a class="brand" href="/">BIST Market Monitor</a>
-        <p class="tagline">IPO ceiling-break monitoring dashboard</p>
+      <div class="brand-group">
+        <a class="brand" href="/">
+          <span class="brand-mark" aria-hidden="true">BT</span>
+          <span>
+            <span class="brand-title">BIST Market Monitor</span>
+            <span class="tagline">IPO ceiling-break monitoring dashboard</span>
+          </span>
+        </a>
       </div>
       <nav class="nav" aria-label="Dashboard navigation">
-        <a href="/">Dashboard</a>
-        <a href="/alerts">Recent alerts</a>
-        <a href="/system">System status</a>
+        <a class="{% if request.url.path == '/' %}active{% endif %}" href="/">Dashboard</a>
+        <a class="{% if request.url.path == '/alerts' %}active{% endif %}" href="/alerts">
+          Recent alerts
+        </a>
+        <a class="{% if request.url.path == '/system' %}active{% endif %}" href="/system">
+          System status
+        </a>
       </nav>
     </header>
 
