@@ -4,7 +4,7 @@
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)
 ![Python](https://img.shields.io/badge/python-3.14-blue)
 ![Docker](https://img.shields.io/badge/docker-supported-blue)
-![License](https://img.shields.io/badge/license-see%20LICENSE-lightgrey)
+![License](https://img.shields.io/badge/license-MIT-green)
 
 A production-oriented Python monitoring system for Borsa Istanbul IPO ceiling-break signals.
 
