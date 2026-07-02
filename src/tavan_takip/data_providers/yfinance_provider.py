@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from datetime import UTC, datetime
 import logging
-from typing import Any
+from typing import Any, Protocol, cast
 
 import pandas as pd
 from tenacity import Retrying, retry_if_exception_type, stop_after_attempt, wait_fixed
@@ -18,6 +18,13 @@ TickerFactory = Callable[[str], Any]
 REQUIRED_HISTORY_COLUMNS = frozenset(("Open", "High", "Low", "Close", "Volume"))
 
 logger = logging.getLogger(__name__)
+
+
+class MetadataSource(Protocol):
+    """Minimal metadata protocol supported by yfinance FastInfo and dictionaries."""
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Return a metadata value by key."""
 
 
 class YFinanceProvider(DataProvider):
@@ -83,7 +90,7 @@ class YFinanceProvider(DataProvider):
             raise DataProviderNoDataError(f"no quote data found for {normalized_symbol}")
 
         latest_row = non_empty_history.iloc[-1]
-        metadata = _as_mapping(getattr(ticker, "fast_info", {}))
+        metadata = _as_metadata_source(getattr(ticker, "fast_info", {}))
         timestamp = _timestamp_from_index(non_empty_history.index[-1])
 
         previous_close = _first_available(
@@ -119,20 +126,29 @@ def _validate_history_columns(history: pd.DataFrame) -> None:
         raise DataProviderError(f"yfinance history is missing columns: {missing_column_list}")
 
 
-def _as_mapping(value: Any) -> Mapping[str, Any]:
-    if isinstance(value, Mapping):
-        return value
+def _as_metadata_source(value: Any) -> MetadataSource:
+    getter = getattr(value, "get", None)
+    if callable(getter):
+        return cast(MetadataSource, value)
     return {}
 
 
 def _first_available(
-    values: Mapping[str, Any],
+    values: MetadataSource,
     keys: tuple[str, ...],
     *,
     fallback: Any,
 ) -> Any:
     for key in keys:
-        value = values.get(key)
+        try:
+            value = values.get(key)
+        except Exception:
+            logger.debug(
+                "market_data_provider_metadata_key_failed",
+                extra={"provider": "yfinance", "metadata_key": key},
+                exc_info=True,
+            )
+            continue
         if value is not None:
             return value
     return fallback

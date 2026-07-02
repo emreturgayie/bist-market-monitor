@@ -20,10 +20,20 @@ from tavan_takip.data_providers import (
 @dataclass
 class FakeTicker:
     history_payload: pd.DataFrame
-    fast_info: dict[str, Any]
+    fast_info: Any
 
     def history(self, **_: object) -> pd.DataFrame:
         return self.history_payload
+
+
+class FakeFastInfo:
+    """yfinance FastInfo-like object that supports get but is not a Mapping."""
+
+    def __init__(self, values: dict[str, Any]) -> None:
+        self._values = values
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._values.get(key, default)
 
 
 def test_yfinance_provider_maps_history_to_market_quote() -> None:
@@ -57,6 +67,40 @@ def test_yfinance_provider_maps_history_to_market_quote() -> None:
     assert quote.currency == "TRY"
     assert quote.timestamp.tzinfo is not None
     assert quote.timestamp.utcoffset() is not None
+
+
+def test_yfinance_provider_reads_non_mapping_fast_info_previous_close() -> None:
+    history = pd.DataFrame(
+        [
+            {
+                "Open": 48.400002,
+                "High": 48.400002,
+                "Low": 48.400002,
+                "Close": 48.400002,
+                "Volume": 83435,
+            }
+        ],
+        index=pd.DatetimeIndex(["2026-07-02 12:51:00+03:00"]),
+    )
+    provider = YFinanceProvider(
+        ticker_factory=lambda _: FakeTicker(
+            history_payload=history,
+            fast_info=FakeFastInfo(
+                {
+                    "previous_close": None,
+                    "regularMarketPreviousClose": 44.0,
+                    "currency": "TRY",
+                }
+            ),
+        ),
+        retry_wait_seconds=0,
+    )
+
+    quote = provider.get_quote("BETAE.IS")
+
+    assert quote.symbol == "BETAE.IS"
+    assert quote.price == Decimal("48.400002")
+    assert quote.previous_close == Decimal("44.0")
 
 
 def test_yfinance_provider_adds_utc_to_naive_timestamps() -> None:

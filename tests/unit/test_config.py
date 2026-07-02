@@ -1,13 +1,25 @@
 """Tests for application settings."""
 
+from typing import Any, cast
+
 import pytest
 from pydantic import ValidationError
 
 from tavan_takip.config import DataProviderName, Settings
 
 
-def test_settings_use_safe_defaults() -> None:
-    settings = Settings()
+def test_settings_use_safe_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    for variable_name in (
+        "TAVAN_TAKIP_TRACKED_SYMBOLS",
+        "TAVAN_TAKIP_DATA_PROVIDER",
+        "TAVAN_TAKIP_YFINANCE_RETRY_ATTEMPTS",
+        "TAVAN_TAKIP_YFINANCE_RETRY_WAIT_SECONDS",
+        "TAVAN_TAKIP_DASHBOARD_HOST",
+        "TAVAN_TAKIP_DASHBOARD_PORT",
+    ):
+        monkeypatch.delenv(variable_name, raising=False)
+
+    settings = Settings(**cast(dict[str, Any], {"_env_file": None}))
 
     assert settings.tracked_symbols == ()
     assert settings.data_provider == DataProviderName.YFINANCE

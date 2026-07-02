@@ -252,3 +252,16 @@ def test_ipo_price_can_be_used_instead_of_previous_close() -> None:
 
     assert signal.theoretical_ceiling_price == Decimal("16.50")
     assert signal.status == CeilingStatus.AT_CEILING
+
+
+def test_betae_limit_up_close_is_not_reported_as_ceiling_break() -> None:
+    detector = CeilingBreakDetector()
+    quote = make_quote(symbol="BETAE.IS", price="48.400002", previous_close="44.00")
+    config = IPOTrackingConfig(symbol="BETAE.IS")
+
+    signal = detector.detect(quote, config)
+
+    assert signal.theoretical_ceiling_price == Decimal("48.40")
+    assert signal.status == CeilingStatus.AT_CEILING
+    assert signal.reason == CeilingSignalReason.CEILING_INTACT
+    assert signal.should_alert is False

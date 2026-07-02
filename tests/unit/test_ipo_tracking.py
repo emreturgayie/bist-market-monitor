@@ -198,3 +198,27 @@ def test_tracker_rejects_quote_config_symbol_mismatch() -> None:
 
     with pytest.raises(ValueError, match="quote symbol"):
         tracker.track(quote=quote, config=config)
+
+
+def test_betae_consecutive_limit_up_close_increments_ceiling_streak() -> None:
+    tracker = IPOTracker()
+    config = IPOTrackingConfig(symbol="BETAE.IS")
+    state = IPOTrackingState(
+        symbol="BETAE.IS",
+        consecutive_ceiling_days=1,
+        last_processed_trading_date=datetime(2026, 7, 1, tzinfo=UTC).date(),
+    )
+    quote = make_quote(
+        symbol="BETAE.IS",
+        price="48.400002",
+        previous_close="44.00",
+        timestamp=datetime(2026, 7, 2, 12, 51, tzinfo=UTC),
+    )
+
+    result = tracker.track(quote=quote, config=config, state=state)
+
+    assert result.ceiling_signal.theoretical_ceiling_price == Decimal("48.40")
+    assert result.ceiling_signal.should_alert is False
+    assert result.new_ceiling_day_counted is True
+    assert result.updated_state.consecutive_ceiling_days == 2
+    assert result.lifecycle_state == IPOTrackingLifecycleState.MONITORING
