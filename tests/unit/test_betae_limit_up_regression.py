@@ -14,7 +14,6 @@ from tavan_takip.application import DashboardService, MonitoringOrchestrator
 from tavan_takip.config import Settings
 from tavan_takip.data_providers import YFinanceProvider
 from tavan_takip.domain import CeilingStatus, IPOTrackingConfig, IPOTrackingLifecycleState
-from tavan_takip.domain import IPOTrackingState
 from tavan_takip.market import DEFAULT_MARKET_TIMEZONE
 from tavan_takip.persistence import SQLiteIPOTrackingStateRepository
 
@@ -25,11 +24,14 @@ BETAE_CHECK_TIME = datetime(2026, 7, 2, 12, 55, tzinfo=DEFAULT_MARKET_TIMEZONE)
 class FakeTicker:
     """Ticker double that never performs network requests."""
 
-    history_payload: pd.DataFrame
+    intraday_history: pd.DataFrame
+    daily_history: pd.DataFrame
     fast_info: Any
 
-    def history(self, **_: object) -> pd.DataFrame:
-        return self.history_payload
+    def history(self, **kwargs: object) -> pd.DataFrame:
+        if kwargs.get("interval") == "1d":
+            return self.daily_history
+        return self.intraday_history
 
 
 class FakeFastInfo:
@@ -44,17 +46,11 @@ class FakeFastInfo:
 
 def test_betae_limit_up_run_persists_dashboard_ceiling_streak(tmp_path: Path) -> None:
     repository = SQLiteIPOTrackingStateRepository(tmp_path / "betae.sqlite3")
-    repository.save(
-        IPOTrackingState(
-            symbol="BETAE.IS",
-            consecutive_ceiling_days=1,
-            last_processed_trading_date=date(2026, 7, 1),
-        )
-    )
     orchestrator = MonitoringOrchestrator(
         data_provider=YFinanceProvider(
             ticker_factory=lambda _: FakeTicker(
-                history_payload=_betae_intraday_history(),
+                intraday_history=_betae_intraday_history(),
+                daily_history=_betae_daily_history(),
                 fast_info=FakeFastInfo(
                     {
                         "previous_close": None,
@@ -81,6 +77,11 @@ def test_betae_limit_up_run_persists_dashboard_ceiling_streak(tmp_path: Path) ->
     assert tracking_result.ceiling_signal.status == CeilingStatus.AT_CEILING
     assert tracking_result.updated_state.consecutive_ceiling_days == 2
     assert tracking_result.updated_state.lifecycle_state == IPOTrackingLifecycleState.MONITORING
+    assert tracking_result.updated_state.last_processed_trading_date == date(2026, 7, 2)
+
+    persisted_state = repository.load("BETAE.IS")
+    assert persisted_state is not None
+    assert persisted_state.consecutive_ceiling_days == 2
 
     dashboard = DashboardService(
         settings=Settings(
@@ -114,4 +115,26 @@ def _betae_intraday_history() -> pd.DataFrame:
             }
         ],
         index=pd.DatetimeIndex(["2026-07-02 12:51:00+03:00"]),
+    )
+
+
+def _betae_daily_history() -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "Open": 44.000000,
+                "High": 44.000000,
+                "Low": 44.000000,
+                "Close": 44.000000,
+                "Volume": 70412,
+            },
+            {
+                "Open": 48.400002,
+                "High": 48.400002,
+                "Low": 48.400002,
+                "Close": 48.400002,
+                "Volume": 83435,
+            },
+        ],
+        index=pd.DatetimeIndex(["2026-07-01 00:00:00+03:00", "2026-07-02 00:00:00+03:00"]),
     )

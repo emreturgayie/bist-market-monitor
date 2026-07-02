@@ -5,6 +5,7 @@ from tavan_takip.application.cli import (
     render_monitoring_result,
     run_monitoring_cycle,
 )
+from tavan_takip.application.backfill import IPOTrackingStateBackfiller
 from tavan_takip.application.dashboard import (
     DashboardOverview,
     DashboardService,
@@ -33,6 +34,7 @@ __all__ = [
     "DashboardOverview",
     "DashboardService",
     "DashboardSymbolRow",
+    "IPOTrackingStateBackfiller",
     "MonitoringOrchestrator",
     "MonitoringModeSummary",
     "MonitoringRunResult",

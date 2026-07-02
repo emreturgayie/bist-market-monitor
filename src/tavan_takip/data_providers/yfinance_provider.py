@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import UTC, datetime
+from decimal import Decimal
 import logging
 from typing import Any, Protocol, cast
 
@@ -11,7 +12,12 @@ import pandas as pd
 from tenacity import Retrying, retry_if_exception_type, stop_after_attempt, wait_fixed
 import yfinance as yf
 
-from tavan_takip.data_providers.base import DataProvider, DataProviderError, DataProviderNoDataError
+from tavan_takip.data_providers.base import (
+    DailyPriceBar,
+    DataProvider,
+    DataProviderError,
+    DataProviderNoDataError,
+)
 from tavan_takip.domain import MarketQuote
 
 TickerFactory = Callable[[str], Any]
@@ -60,6 +66,53 @@ class YFinanceProvider(DataProvider):
                 return self._fetch_quote(symbol)
 
         raise DataProviderError("quote retrieval ended without a result")
+
+    def get_daily_bars(self, symbol: str, *, period: str = "1mo") -> tuple[DailyPriceBar, ...]:
+        """Return recent daily OHLCV bars for a symbol."""
+        normalized_symbol = symbol.strip().upper()
+        if not normalized_symbol:
+            raise ValueError("symbol must not be blank")
+        if not period.strip():
+            raise ValueError("period must not be blank")
+
+        try:
+            ticker = self._ticker_factory(normalized_symbol)
+            history = ticker.history(period=period, interval="1d", auto_adjust=False)
+        except Exception as exc:
+            logger.warning(
+                "market_data_provider_daily_history_failed",
+                extra={"provider": "yfinance", "symbol": normalized_symbol},
+                exc_info=exc,
+            )
+            raise DataProviderError(
+                f"failed to retrieve daily history for {normalized_symbol}"
+            ) from exc
+
+        if not isinstance(history, pd.DataFrame):
+            raise DataProviderError("yfinance returned an unexpected daily history payload")
+        _validate_history_columns(history)
+
+        non_empty_history = history.dropna(subset=["Open", "High", "Low", "Close"])
+        if non_empty_history.empty:
+            raise DataProviderNoDataError(f"no daily history found for {normalized_symbol}")
+
+        metadata = _as_metadata_source(getattr(ticker, "fast_info", {}))
+        currency = str(
+            _first_available(
+                metadata,
+                ("currency", "quoteCurrency"),
+                fallback="TRY",
+            )
+        )
+        return tuple(
+            _daily_bar_from_row(
+                symbol=normalized_symbol,
+                index_value=index_value,
+                row=row,
+                currency=currency,
+            )
+            for index_value, row in non_empty_history.iterrows()
+        )
 
     def _fetch_quote(self, symbol: str) -> MarketQuote:
         normalized_symbol = symbol.strip().upper()
@@ -165,3 +218,27 @@ def _timestamp_from_index(value: Any) -> datetime:
     if timestamp.tzinfo is None or timestamp.utcoffset() is None:
         return timestamp.replace(tzinfo=UTC)
     return timestamp
+
+
+def _daily_bar_from_row(
+    *,
+    symbol: str,
+    index_value: Any,
+    row: pd.Series,
+    currency: str,
+) -> DailyPriceBar:
+    timestamp = _timestamp_from_index(index_value)
+    return DailyPriceBar(
+        symbol=symbol,
+        trading_date=timestamp.date(),
+        open_price=_to_decimal(row["Open"]),
+        high_price=_to_decimal(row["High"]),
+        low_price=_to_decimal(row["Low"]),
+        close_price=_to_decimal(row["Close"]),
+        volume=int(row["Volume"]),
+        currency=currency,
+    )
+
+
+def _to_decimal(value: Any) -> Decimal:
+    return Decimal(str(value))

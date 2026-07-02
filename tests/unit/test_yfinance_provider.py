@@ -103,6 +103,44 @@ def test_yfinance_provider_reads_non_mapping_fast_info_previous_close() -> None:
     assert quote.previous_close == Decimal("44.0")
 
 
+def test_yfinance_provider_maps_daily_history_to_daily_bars() -> None:
+    history = pd.DataFrame(
+        [
+            {
+                "Open": 44.000000,
+                "High": 44.000000,
+                "Low": 44.000000,
+                "Close": 44.000000,
+                "Volume": 70412,
+            },
+            {
+                "Open": 48.400002,
+                "High": 48.400002,
+                "Low": 48.400002,
+                "Close": 48.400002,
+                "Volume": 83435,
+            },
+        ],
+        index=pd.DatetimeIndex(["2026-07-01 00:00:00+03:00", "2026-07-02 00:00:00+03:00"]),
+    )
+    provider = YFinanceProvider(
+        ticker_factory=lambda _: FakeTicker(
+            history_payload=history,
+            fast_info=FakeFastInfo({"currency": "TRY"}),
+        ),
+        retry_wait_seconds=0,
+    )
+
+    bars = provider.get_daily_bars("BETAE.IS")
+
+    assert len(bars) == 2
+    assert bars[0].symbol == "BETAE.IS"
+    assert bars[0].trading_date.isoformat() == "2026-07-01"
+    assert bars[0].close_price == Decimal("44.0")
+    assert bars[1].close_price == Decimal("48.400002")
+    assert bars[1].volume == 83435
+
+
 def test_yfinance_provider_adds_utc_to_naive_timestamps() -> None:
     history = pd.DataFrame(
         [{"Open": 10, "High": 11, "Low": 9, "Close": 10, "Volume": 100}],

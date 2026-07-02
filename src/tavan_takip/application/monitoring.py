@@ -6,7 +6,9 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
+import logging
 
+from tavan_takip.application.backfill import IPOTrackingStateBackfiller
 from tavan_takip.data_providers import DataProvider, DataProviderError, DataProviderNoDataError
 from tavan_takip.domain import IPOTracker, IPOTrackingConfig, IPOTrackingResult, IPOTrackingState
 from tavan_takip.market import MarketSession, MarketSessionEngine
@@ -16,6 +18,8 @@ from tavan_takip.notifications import (
     Notifier,
 )
 from tavan_takip.persistence import BreakAlertRepository, IPOTrackingStateRepository
+
+logger = logging.getLogger(__name__)
 
 
 class MonitoringRunStatus(StrEnum):
@@ -72,6 +76,7 @@ class MonitoringOrchestrator:
         state_repository: IPOTrackingStateRepository | None = None,
         notifier: Notifier | None = None,
         alert_repository: BreakAlertRepository | None = None,
+        state_backfiller: IPOTrackingStateBackfiller | None = None,
     ) -> None:
         self._data_provider = data_provider
         self._market_session_engine = market_session_engine or MarketSessionEngine()
@@ -79,6 +84,9 @@ class MonitoringOrchestrator:
         self._state_repository = state_repository
         self._notifier = notifier
         self._alert_repository = alert_repository
+        self._state_backfiller = state_backfiller or IPOTrackingStateBackfiller(
+            tracker=self._tracker
+        )
 
     def run(
         self,
@@ -166,9 +174,32 @@ class MonitoringOrchestrator:
             return _normalize_states(states)
         if self._state_repository is None:
             return {}
-        return {
-            config.symbol: self._state_repository.get_or_create(config.symbol) for config in configs
-        }
+        return {config.symbol: self._load_or_initialize_state(config) for config in configs}
+
+    def _load_or_initialize_state(self, config: IPOTrackingConfig) -> IPOTrackingState:
+        if self._state_repository is None:
+            return IPOTrackingState(symbol=config.symbol)
+
+        existing_state = self._state_repository.load(config.symbol)
+        if existing_state is not None:
+            return existing_state
+
+        try:
+            daily_bars = self._data_provider.get_daily_bars(config.symbol)
+            initialized_state = self._state_backfiller.backfill(
+                config=config,
+                daily_bars=daily_bars,
+            )
+        except DataProviderError:
+            logger.info(
+                "tracking_state_backfill_unavailable",
+                extra={"symbol": config.symbol},
+                exc_info=True,
+            )
+            initialized_state = IPOTrackingState(symbol=config.symbol)
+
+        self._state_repository.save(initialized_state)
+        return initialized_state
 
     def _send_notification_if_needed(
         self,
